@@ -68,7 +68,7 @@ $preview = $stmt->fetch();
             Sauvegarde de la base de données
         </h3>
         <p class="text-muted">Créez une copie de sauvegarde de la base de données SQLite.</p>
-        <button class="btn btn-outline" onclick="triggerBackup()">Créer une sauvegarde maintenant</button>
+        <button class="btn btn-outline" onclick="triggerBackup(this)">Créer une sauvegarde maintenant</button>
         <div id="backupMsg" style="margin-top:12px"></div>
     </div>
     <?php endif; ?>
@@ -86,8 +86,7 @@ function doExport(e) {
     window.location.href = 'api/export_xlsx.php?month=' + month + '&csrf_token=' + encodeURIComponent(document.getElementById('csrfToken').value);
 }
 
-async function triggerBackup() {
-    const btn = event.target;
+async function triggerBackup(btn) {
     btn.disabled = true;
     btn.textContent = 'Sauvegarde en cours...';
     const fd = new FormData();

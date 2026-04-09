@@ -43,7 +43,7 @@ $msg = $_GET['msg'] ?? '';
 </div>
 
 <!-- Tech form modal -->
-<div class="modal-overlay" id="techModal" style="display:none">
+<div class="modal-overlay" id="techModal">
     <div class="modal modal-lg">
         <div class="modal-header">
             <h3 id="techModalTitle">Ajouter un technicien</h3>
@@ -96,7 +96,7 @@ function showTechForm() {
     document.getElementById('techModalTitle').textContent = 'Ajouter un technicien';
     document.getElementById('techPin').placeholder = 'PIN obligatoire (4-8 chiffres)';
     document.getElementById('techError').style.display = 'none';
-    document.getElementById('techModal').style.display = 'flex';
+    document.getElementById('techModal').classList.add('open');
 }
 
 function editTech(tech) {
@@ -109,11 +109,11 @@ function editTech(tech) {
     document.getElementById('techModalTitle').textContent = 'Modifier ' + tech.name;
     document.getElementById('techPin').placeholder = 'Laisser vide pour conserver le PIN actuel';
     document.getElementById('techError').style.display = 'none';
-    document.getElementById('techModal').style.display = 'flex';
+    document.getElementById('techModal').classList.add('open');
 }
 
 function closeTechModal() {
-    document.getElementById('techModal').style.display = 'none';
+    document.getElementById('techModal').classList.remove('open');
 }
 
 async function saveTech() {

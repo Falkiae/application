@@ -163,7 +163,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
 
                 <div class="edit-actions">
                     <a href="index.php?page=prestations" class="btn btn-outline">Annuler</a>
-                    <button type="button" class="btn btn-primary" onclick="saveEdit()">Enregistrer les modifications</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEdit(this)">Enregistrer les modifications</button>
                 </div>
             </div>
 
@@ -213,7 +213,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
 </div>
 
 <script>
-async function saveEdit() {
+async function saveEdit(btn) {
     const form = document.getElementById('editForm');
     const err = document.getElementById('editError');
     const suc = document.getElementById('editSuccess');
@@ -229,7 +229,6 @@ async function saveEdit() {
     if (!tva.checked) fd.set('ticket_tva', '0');
     if (!facture.checked) fd.set('facture_a_faire', '0');
 
-    const btn = event.target;
     btn.disabled = true;
     btn.textContent = 'Enregistrement...';
 

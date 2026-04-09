@@ -53,16 +53,11 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
 
 // Generate month options (last 12 months)
 $months = [];
+$frMonths = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 for ($i = 0; $i < 12; $i++) {
     $dt = new DateTime("first day of -$i month");
-    $months[] = ['value' => $dt->format('Y-m'), 'label' => ucfirst(strftime('%B %Y', $dt->getTimestamp()))];
-}
-// fallback if strftime not available
-if (empty($months[0]['label'])) {
-    for ($i = 0; $i < 12; $i++) {
-        $dt = new DateTime("first day of -$i month");
-        $months[$i]['label'] = $dt->format('m/Y');
-    }
+    $label = ucfirst($frMonths[(int)$dt->format('n') - 1]) . ' ' . $dt->format('Y');
+    $months[] = ['value' => $dt->format('Y-m'), 'label' => $label];
 }
 ?>
 
@@ -165,7 +160,7 @@ if (empty($months[0]['label'])) {
 </div>
 
 <!-- Delete confirmation modal -->
-<div class="modal-overlay" id="deleteModal" style="display:none">
+<div class="modal-overlay" id="deleteModal">
     <div class="modal">
         <div class="modal-icon modal-icon-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -194,10 +189,10 @@ let deleteId = null;
 function deleteService(id, label) {
     deleteId = id;
     document.getElementById('deleteModalBody').textContent = `Supprimer la prestation "${label}" ? Cette action est irréversible.`;
-    document.getElementById('deleteModal').style.display = 'flex';
+    document.getElementById('deleteModal').classList.add('open');
 }
 function closeDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'none';
+    document.getElementById('deleteModal').classList.remove('open');
     deleteId = null;
 }
 document.getElementById('confirmDelete').addEventListener('click', async function() {

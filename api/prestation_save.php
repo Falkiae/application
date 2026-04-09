@@ -35,9 +35,11 @@ if (strlen($notes) > 2000) jsonResponse(['error' => 'Notes trop longues'], 400);
 function sanitizePhotoPath(?string $path): ?string {
     if (!$path || $path === '__deleted__') return null;
     $path = ltrim($path, '/');
-    if (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'photos/')) return null;
     if (str_contains($path, '..')) return null;
-    return $path;
+    // Accept uploads/YYYY/MM/file.jpg, photos/..., or bare YYYY/MM/hex.jpg from photo_upload.php
+    if (str_starts_with($path, 'uploads/') || str_starts_with($path, 'photos/')) return $path;
+    if (preg_match('/^\d{4}\/\d{2}\/[a-f0-9]+\.jpg$/', $path)) return $path;
+    return null;
 }
 
 if ($action === 'create') {

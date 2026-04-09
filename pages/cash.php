@@ -128,7 +128,7 @@ $mvtTypeLabels = [
 </div>
 
 <!-- Cash entry modal -->
-<div class="modal-overlay" id="cashModal" style="display:none">
+<div class="modal-overlay" id="cashModal">
     <div class="modal modal-lg">
         <div class="modal-header">
             <h3>Enregistrer un mouvement</h3>
@@ -175,10 +175,10 @@ function showCashForm(techId) {
     document.getElementById('cashNotes').value = '';
     document.getElementById('cashError').style.display = 'none';
     document.querySelector('input[name="cashType"][value="depot_banque"]').checked = true;
-    document.getElementById('cashModal').style.display = 'flex';
+    document.getElementById('cashModal').classList.add('open');
 }
 function closeCashModal() {
-    document.getElementById('cashModal').style.display = 'none';
+    document.getElementById('cashModal').classList.remove('open');
 }
 async function saveCashMovement() {
     const techId = document.getElementById('cashTechId').value;

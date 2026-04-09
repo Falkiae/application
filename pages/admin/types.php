@@ -41,7 +41,7 @@ $msg = $_GET['msg'] ?? '';
 </div>
 
 <!-- Type form modal -->
-<div class="modal-overlay" id="typeModal" style="display:none">
+<div class="modal-overlay" id="typeModal">
     <div class="modal">
         <div class="modal-header">
             <h3 id="typeModalTitle">Ajouter un type</h3>
@@ -68,16 +68,16 @@ function showTypeForm() {
     document.getElementById('typeLabel').value = '';
     document.getElementById('typeModalTitle').textContent = 'Ajouter un type de nettoyage';
     document.getElementById('typeError').style.display = 'none';
-    document.getElementById('typeModal').style.display = 'flex';
+    document.getElementById('typeModal').classList.add('open');
 }
 function editType(type) {
     document.getElementById('typeId').value = type.id;
     document.getElementById('typeLabel').value = type.label;
     document.getElementById('typeModalTitle').textContent = 'Modifier ' + type.label;
     document.getElementById('typeError').style.display = 'none';
-    document.getElementById('typeModal').style.display = 'flex';
+    document.getElementById('typeModal').classList.add('open');
 }
-function closeTypeModal() { document.getElementById('typeModal').style.display = 'none'; }
+function closeTypeModal() { document.getElementById('typeModal').classList.remove('open'); }
 
 async function saveType() {
     const id = document.getElementById('typeId').value;
