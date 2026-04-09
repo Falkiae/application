@@ -248,4 +248,24 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.closest('.type-btn, .lieu-btn, .payment-btn, .toggle-option')?.classList.add('selected');
         });
     });
+
+    // Auto-check facture_a_faire + pre-fill billing note when paiement=facture
+    document.querySelectorAll('input[name="paiement"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'facture') {
+                const factureOui = document.querySelector('input[name="facture_a_faire"][value="1"]');
+                if (factureOui) {
+                    factureOui.checked = true;
+                    document.querySelectorAll('input[name="facture_a_faire"]').forEach(r => {
+                        r.closest('.toggle-option')?.classList.remove('selected');
+                    });
+                    factureOui.closest('.toggle-option')?.classList.add('selected');
+                }
+                const notesInput = document.getElementById('notesInput');
+                if (notesInput && !notesInput.value.trim()) {
+                    notesInput.value = 'Infos facturation : Nom complet, adresse, n° TVA';
+                }
+            }
+        });
+    });
 });

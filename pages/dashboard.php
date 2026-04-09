@@ -23,16 +23,25 @@ if ($isAdm) {
 $stmtMonth->execute($isAdm ? [$thisMonth] : [$thisMonth, $techId]);
 $statsMonth = $stmtMonth->fetch();
 
-// Cash per technician
-$cashQuery = "
-    SELECT t.id, t.name, t.color,
-        COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=t.id AND type='initial'),0) as montant_initial,
-        COALESCE((SELECT SUM(montant) FROM services WHERE technician_id=t.id AND paiement='cash'),0) as cash_payments,
-        COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=t.id AND type='depot_banque'),0) as bank_deposits
-    FROM technicians t WHERE t.active=1 " . ($isAdm ? "" : "AND t.id=?");
-$stmtCash = $db->prepare($cashQuery);
-$stmtCash->execute($isAdm ? [] : [$techId]);
-$cashData = $stmtCash->fetchAll();
+// Global cash total
+if ($isAdm) {
+    $stmtCash = $db->query("
+        SELECT
+            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE type='initial'),0) +
+            COALESCE((SELECT SUM(montant) FROM services WHERE paiement='cash'),0) -
+            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE type='depot_banque'),0) as global_solde
+    ");
+    $globalCash = (float)$stmtCash->fetchColumn();
+} else {
+    $stmtCash = $db->prepare("
+        SELECT
+            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=? AND type='initial'),0) +
+            COALESCE((SELECT SUM(montant) FROM services WHERE technician_id=? AND paiement='cash'),0) -
+            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=? AND type='depot_banque'),0) as solde
+    ");
+    $stmtCash->execute([$techId, $techId, $techId]);
+    $globalCash = (float)$stmtCash->fetchColumn();
+}
 
 // Pending invoices (facture_a_faire=1 AND facture_envoyee=0)
 $invoiceWhere = "facture_a_faire=1 AND (facture_envoyee IS NULL OR facture_envoyee=0)";
@@ -162,20 +171,11 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
             </h2>
             <a href="index.php?page=cash" class="btn-link">Gérer →</a>
         </div>
-        <div class="cash-list">
-            <?php foreach ($cashData as $c):
-                $solde = $c['montant_initial'] + $c['cash_payments'] - $c['bank_deposits'];
-            ?>
-            <div class="cash-item">
-                <div class="tech-avatar" style="background:<?= htmlspecialchars($c['color']) ?>">
-                    <?= strtoupper(substr($c['name'], 0, 1)) ?>
-                </div>
-                <div class="cash-tech-name"><?= htmlspecialchars($c['name']) ?></div>
-                <div class="cash-solde <?= $solde < 0 ? 'solde-negative' : '' ?>">
-                    <?= number_format($solde, 2, ',', '.') ?> €
-                </div>
-            </div>
-            <?php endforeach; ?>
+        <div class="cash-global-recap">
+            <span class="cash-global-label"><?= $isAdm ? 'Total tous techniciens' : 'Votre solde cash' ?></span>
+            <span class="cash-global-amount <?= $globalCash < 0 ? 'amount-red' : 'amount-green' ?>">
+                <?= number_format($globalCash, 2, ',', '.') ?> €
+            </span>
         </div>
     </div>
 

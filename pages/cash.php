@@ -56,9 +56,28 @@ $mvtTypeLabels = [
     'cash_service' => 'Prestation cash',
     'note' => 'Note',
 ];
+
+// Global total (all technicians)
+$globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
 ?>
 
 <div class="cash-page">
+    <?php if ($isAdm): ?>
+    <div class="section-card cash-global-card">
+        <div class="cash-global-inner">
+            <div class="cash-global-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>
+            </div>
+            <div class="cash-global-info">
+                <span class="cash-global-label">Total liquidités (tous techniciens)</span>
+                <span class="cash-global-amount <?= $globalTotal < 0 ? 'amount-red' : 'amount-green' ?>">
+                    <?= number_format($globalTotal, 2, ',', '.') ?> €
+                </span>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php foreach ($cashSummary as $tid => $data): ?>
     <div class="section-card">
         <div class="cash-header">

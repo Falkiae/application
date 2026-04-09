@@ -88,7 +88,7 @@ $pageTitle = match($page) {
     <!-- Sidebar (desktop) -->
     <aside class="sidebar">
         <div class="sidebar-logo">
-            <span class="logo-text">Keep<span class="logo-accent">new</span></span>
+            <img src="assets/img/logo.png" alt="Keepnew" height="40">
         </div>
         <nav class="sidebar-nav">
             <a href="index.php?page=dashboard" class="nav-item <?= $currentPage === 'dashboard' ? 'active' : '' ?>">

@@ -95,7 +95,7 @@ input, select, textarea { font-family: inherit; }
   align-items: center;
   gap: 12px;
 }
-.sidebar-logo img { height: 36px; width: auto; }
+.sidebar-logo img { height: 40px; width: auto; filter: brightness(0) invert(1); }
 .sidebar-logo .logo-text {
   font-size: 1.1rem;
   font-weight: 700;
@@ -1146,15 +1146,17 @@ tr:hover td { background: var(--gray-50); }
 .type-btn span { display: block; width: 100%; padding: 10px 8px; background: white; border: 2px solid var(--gray-200); border-radius: var(--radius-sm); text-align: center; font-size: .82rem; cursor: pointer; transition: all .15s; font-weight: 500; }
 .type-btn.selected span, .type-btn input:checked + span { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
 .lieu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.lieu-btn { display: flex; flex-direction: column; align-items: center; }
+.lieu-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .lieu-btn input { display: none; }
-.lieu-btn > div, .lieu-btn svg ~ span { display: none; }
-.lieu-btn { border: 2px solid var(--gray-200); border-radius: var(--radius); padding: 20px 12px; background: white; text-align: center; cursor: pointer; transition: all .15s; }
-.lieu-btn svg { width: 32px; height: 32px; stroke: var(--gray-400); margin-bottom: 8px; }
-.lieu-btn span { font-size: .9rem; font-weight: 500; color: var(--gray-600); }
+.lieu-btn { border: 2px solid var(--gray-200); border-radius: var(--radius); padding: 24px 12px; background: white; text-align: center; cursor: pointer; transition: all .15s; }
+.lieu-btn svg { width: 36px; height: 36px; stroke: var(--gray-400); margin-bottom: 10px; display: block; }
+.lieu-btn span { font-size: .9rem; font-weight: 600; color: var(--gray-600); display: block; }
 .lieu-btn.selected, .lieu-btn:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
 .lieu-btn.selected svg, .lieu-btn:has(input:checked) svg { stroke: var(--primary); }
 .lieu-btn.selected span, .lieu-btn:has(input:checked) span { color: var(--primary); }
+
+/* Dashboard spacing */
+.dashboard { display: flex; flex-direction: column; gap: 20px; }
 .toggle-choice { display: flex; flex-direction: column; gap: 12px; }
 .toggle-option { display: block; cursor: pointer; }
 .toggle-option input { display: none; }
@@ -1373,6 +1375,29 @@ tr:hover td { background: var(--gray-50); }
 .cash-solde { font-weight: 700; font-size: .95rem; }
 .cash-solde.solde-negative { color: #dc2626; }
 .cash-list { display: flex; flex-direction: column; }
+
+/* Global cash recap (dashboard + cash page) */
+.cash-global-recap {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 4px;
+}
+.cash-global-recap .cash-global-label { font-size: .9rem; color: var(--text-secondary); }
+.cash-global-recap .cash-global-amount { font-size: 1.4rem; font-weight: 700; }
+.cash-global-card { margin-bottom: 0; }
+.cash-global-inner {
+  display: flex; align-items: center; gap: 16px;
+}
+.cash-global-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #596FF3, #818cf8);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cash-global-icon svg { width: 22px; height: 22px; stroke: #fff; }
+.cash-global-info { display: flex; flex-direction: column; gap: 2px; }
+.cash-global-info .cash-global-label { font-size: .85rem; color: var(--text-secondary); }
+.cash-global-info .cash-global-amount { font-size: 1.5rem; font-weight: 700; }
+.amount-green { color: #16a34a; }
+.amount-red { color: #dc2626; }
 
 /* Form aliases (HTML uses .form-input, .form-select; CSS has .form-control) */
 .form-input, .form-select {

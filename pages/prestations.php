@@ -7,6 +7,7 @@ $filterMonth = $_GET['month'] ?? date('Y-m');
 $filterTech = $isAdm ? (int)($_GET['tech'] ?? 0) : $techId;
 $filterPayment = $_GET['payment'] ?? '';
 $filterInvoice = $_GET['filter'] ?? ''; // 'pending' = à faire, 'sent' = envoyées
+$filterType = (int)($_GET['type'] ?? 0);
 
 // Build query
 $where = ["strftime('%Y-%m', s.date) = ?"];
@@ -26,6 +27,10 @@ if ($filterInvoice === 'pending') {
     $where[] = "s.facture_a_faire = 1 AND (s.facture_envoyee IS NULL OR s.facture_envoyee = 0)";
 } elseif ($filterInvoice === 'sent') {
     $where[] = "s.facture_envoyee = 1";
+}
+if ($filterType > 0) {
+    $where[] = "s.type_nettoyage_id = ?";
+    $params[] = $filterType;
 }
 $whereStr = implode(' AND ', $where);
 
@@ -49,6 +54,9 @@ $technicians = [];
 if ($isAdm) {
     $technicians = $db->query("SELECT id, name, color FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
 }
+
+// Service types for filter
+$allTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
 
 $paiementLabels = ['cash'=>'Cash','virement'=>'Virement','qrcode'=>'QR Code','facture'=>'Facture'];
 $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
@@ -89,6 +97,14 @@ for ($i = 0; $i < 12; $i++) {
             <option value="virement" <?= $filterPayment==='virement'?'selected':'' ?>>Virement</option>
             <option value="qrcode" <?= $filterPayment==='qrcode'?'selected':'' ?>>QR Code</option>
             <option value="facture" <?= $filterPayment==='facture'?'selected':'' ?>>Facture</option>
+        </select>
+        <select class="form-select filter-select" id="filterType" onchange="applyFilters()">
+            <option value="0">Tous les types</option>
+            <?php foreach ($allTypes as $t): ?>
+            <option value="<?= $t['id'] ?>" <?= $filterType == $t['id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($t['label']) ?>
+            </option>
+            <?php endforeach; ?>
         </select>
         <select class="form-select filter-select" id="filterInvoice" onchange="applyFilters()">
             <option value="">Toutes</option>
@@ -195,10 +211,12 @@ function applyFilters() {
     const month = document.getElementById('filterMonth').value;
     const tech = document.getElementById('filterTech')?.value || '0';
     const payment = document.getElementById('filterPayment').value;
+    const type = document.getElementById('filterType').value;
     const invoice = document.getElementById('filterInvoice').value;
     let url = `index.php?page=prestations&month=${month}`;
     if (tech !== '0') url += `&tech=${tech}`;
     if (payment) url += `&payment=${payment}`;
+    if (type !== '0') url += `&type=${type}`;
     if (invoice) url += `&filter=${invoice}`;
     window.location.href = url;
 }
