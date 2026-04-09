@@ -1,0 +1,43 @@
+Options -Indexes
+DirectoryIndex index.php
+
+# Deny direct HTTP access to sensitive directories
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block access to data directory
+    RewriteRule ^data/ - [F,L]
+
+    # Block access to backups directory
+    RewriteRule ^backups/ - [F,L]
+
+    # Block direct access to PHP files in api/ (must go through index.php for auth)
+    # Exception: api files are accessed directly but protected by PHP auth
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "\.(sqlite|db|sh|env|log|bak)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Protect dotfiles
+<FilesMatch "^\.">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Disable PHP execution in uploads
+<IfModule mod_php.c>
+    <Directory "uploads">
+        php_flag engine off
+    </Directory>
+</IfModule>
