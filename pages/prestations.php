@@ -191,6 +191,36 @@ for ($i = 0; $i < 12; $i++) {
     <?php endif; ?>
 </div>
 
+<!-- Confirm invoice sent modal -->
+<div class="modal-overlay" id="confirmSentModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        </div>
+        <h3 class="modal-title">Marquer la facture comme envoyée ?</h3>
+        <p class="modal-body">Confirmez que la facture a bien été envoyée au client.</p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="document.getElementById('confirmSentModal').classList.remove('open')">Annuler</button>
+            <button class="btn btn-primary" id="confirmSentOk">Confirmer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm undo sent modal -->
+<div class="modal-overlay" id="confirmUndoModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </div>
+        <h3 class="modal-title">Annuler l'envoi de la facture ?</h3>
+        <p class="modal-body">La facture repassera en statut "à faire".</p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="document.getElementById('confirmUndoModal').classList.remove('open')">Annuler</button>
+            <button class="btn btn-danger" id="confirmUndoOk">Confirmer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Delete confirmation modal -->
 <div class="modal-overlay" id="deleteModal">
     <div class="modal">
@@ -249,21 +279,40 @@ document.getElementById('confirmDelete').addEventListener('click', async functio
     }
 });
 
-async function markFactureEnvoyee(e, id, envoyee = 1) {
+let _fBtn = null, _fId = null, _fVal = 1;
+
+function markFactureEnvoyee(e, id, envoyee = 1) {
     e.stopPropagation();
-    const btn = e.currentTarget;
-    btn.disabled = true;
+    _fBtn = e.currentTarget;
+    _fId  = id;
+    _fVal = envoyee;
+    if (envoyee === 1) {
+        document.getElementById('confirmSentModal').classList.add('open');
+    } else {
+        // "Annuler envoi" : confirmation simple aussi
+        document.getElementById('confirmUndoModal').classList.add('open');
+    }
+}
+
+document.getElementById('confirmSentOk').addEventListener('click', async function() {
+    document.getElementById('confirmSentModal').classList.remove('open');
+    await _doMark();
+});
+document.getElementById('confirmUndoOk').addEventListener('click', async function() {
+    document.getElementById('confirmUndoModal').classList.remove('open');
+    await _doMark();
+});
+
+async function _doMark() {
+    if (!_fId) return;
+    _fBtn.disabled = true;
     const fd = new FormData();
-    fd.append('id', id);
-    fd.append('envoyee', envoyee);
+    fd.append('id', _fId);
+    fd.append('envoyee', _fVal);
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/facture_mark.php', {method:'POST', body:fd});
     const data = await res.json();
-    if (data.success) {
-        window.location.reload();
-    } else {
-        alert(data.error || 'Erreur');
-        btn.disabled = false;
-    }
+    if (data.success) { window.location.reload(); }
+    else { alert(data.error || 'Erreur'); _fBtn.disabled = false; }
 }
 </script>

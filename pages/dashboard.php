@@ -227,23 +227,47 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
     </div>
 </div>
 
+<!-- Confirm invoice sent modal -->
+<div class="modal-overlay" id="confirmSentModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        </div>
+        <h3 class="modal-title">Marquer la facture comme envoyée ?</h3>
+        <p class="modal-body">Confirmez que la facture a bien été envoyée au client.</p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="document.getElementById('confirmSentModal').classList.remove('open')">Annuler</button>
+            <button class="btn btn-primary" id="confirmSentOk">Confirmer</button>
+        </div>
+    </div>
+</div>
+
 <script>
-async function markSent(btn, id) {
-    btn.disabled = true;
+let _sentBtn = null, _sentId = null;
+
+function markSent(btn, id) {
+    _sentBtn = btn;
+    _sentId  = id;
+    document.getElementById('confirmSentModal').classList.add('open');
+}
+
+document.getElementById('confirmSentOk').addEventListener('click', async function() {
+    document.getElementById('confirmSentModal').classList.remove('open');
+    if (!_sentId) return;
+    _sentBtn.disabled = true;
     const fd = new FormData();
-    fd.append('id', id);
+    fd.append('id', _sentId);
     fd.append('envoyee', '1');
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/facture_mark.php', {method:'POST', body:fd});
     const data = await res.json();
     if (data.success) {
-        // Fade out the invoice item
-        const item = btn.closest('.invoice-item');
-        if (item) { item.style.opacity = '0'; item.style.transition = 'opacity .3s'; setTimeout(() => window.location.reload(), 300); }
+        const item = _sentBtn.closest('.invoice-item');
+        if (item) { item.style.opacity='0'; item.style.transition='opacity .3s'; setTimeout(()=>window.location.reload(),300); }
         else window.location.reload();
     } else {
         alert(data.error || 'Erreur');
-        btn.disabled = false;
+        _sentBtn.disabled = false;
     }
-}
+});
 </script>
