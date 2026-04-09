@@ -1150,13 +1150,13 @@ tr:hover td { background: var(--gray-50); }
 .lieu-btn input { display: none; }
 .lieu-btn { border: 2px solid var(--gray-200); border-radius: var(--radius); padding: 24px 12px; background: white; text-align: center; cursor: pointer; transition: all .15s; }
 .lieu-btn svg { width: 36px; height: 36px; stroke: var(--gray-400); margin-bottom: 10px; display: block; }
-.lieu-btn span { font-size: .9rem; font-weight: 600; color: var(--gray-600); display: block; }
+.lieu-btn span { font-size: .9rem; font-weight: 600; color: var(--gray-600); display: block !important; }
 .lieu-btn.selected, .lieu-btn:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
 .lieu-btn.selected svg, .lieu-btn:has(input:checked) svg { stroke: var(--primary); }
 .lieu-btn.selected span, .lieu-btn:has(input:checked) span { color: var(--primary); }
 
 /* Dashboard spacing */
-.dashboard { display: flex; flex-direction: column; gap: 20px; }
+.dashboard { display: flex; flex-direction: column; gap: 28px; }
 .toggle-choice { display: flex; flex-direction: column; gap: 12px; }
 .toggle-option { display: block; cursor: pointer; }
 .toggle-option input { display: none; }
