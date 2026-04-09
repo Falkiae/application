@@ -74,7 +74,7 @@ $today = date('Y-m-d');
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     Prendre / Choisir une photo
                 </label>
-                <input type="file" id="photoAvantInput" accept="image/*" capture="environment" class="photo-file-input">
+                <input type="file" id="photoAvantInput" accept="image/*" class="photo-file-input">
                 <button type="button" class="btn btn-outline" id="photoAvantClear" style="display:none" onclick="clearPhoto('avant')">
                     Retirer la photo
                 </button>
@@ -100,7 +100,7 @@ $today = date('Y-m-d');
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     Prendre / Choisir une photo
                 </label>
-                <input type="file" id="photoApresInput" accept="image/*" capture="environment" class="photo-file-input">
+                <input type="file" id="photoApresInput" accept="image/*" class="photo-file-input">
                 <button type="button" class="btn btn-outline" id="photoApresClear" style="display:none" onclick="clearPhoto('apres')">
                     Retirer la photo
                 </button>

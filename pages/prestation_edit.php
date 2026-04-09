@@ -146,7 +146,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                             <img id="editAvantImg" class="photo-thumb" style="display:none" alt="Photo avant">
                             <?php endif; ?>
                             <label class="btn btn-outline btn-sm btn-camera-sm" for="editPhotoAvantInput">Changer</label>
-                            <input type="file" id="editPhotoAvantInput" accept="image/*" capture="environment" class="photo-file-input">
+                            <input type="file" id="editPhotoAvantInput" accept="image/*" class="photo-file-input">
                             <?php if ($service['photo_avant']): ?>
                             <button type="button" class="btn-text-danger btn-sm" onclick="clearEditPhoto('avant')">Supprimer</button>
                             <?php endif; ?>
@@ -160,7 +160,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                             <img id="editApresImg" class="photo-thumb" style="display:none" alt="Photo après">
                             <?php endif; ?>
                             <label class="btn btn-outline btn-sm btn-camera-sm" for="editPhotoApresInput">Changer</label>
-                            <input type="file" id="editPhotoApresInput" accept="image/*" capture="environment" class="photo-file-input">
+                            <input type="file" id="editPhotoApresInput" accept="image/*" class="photo-file-input">
                             <?php if ($service['photo_apres']): ?>
                             <button type="button" class="btn-text-danger btn-sm" onclick="clearEditPhoto('apres')">Supprimer</button>
                             <?php endif; ?>
