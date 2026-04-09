@@ -21,14 +21,14 @@ if (!isAdmin() && $targetId !== $currentId) {
     jsonResponse(['error' => 'Accès refusé'], 403);
 }
 
-if (!in_array($type, ['initial', 'depot_banque', 'note'])) {
+if (!in_array($type, ['initial', 'depot_banque', 'achat_liquide', 'note'])) {
     jsonResponse(['error' => 'Type invalide'], 400);
 }
 if ($montant <= 0) jsonResponse(['error' => 'Montant invalide'], 400);
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) jsonResponse(['error' => 'Date invalide'], 400);
 
-// For depot_banque, store as negative
-$storedMontant = $type === 'depot_banque' ? -abs($montant) : abs($montant);
+// Sorties stockées en négatif
+$storedMontant = in_array($type, ['depot_banque', 'achat_liquide']) ? -abs($montant) : abs($montant);
 
 $db->prepare("INSERT INTO cash_movements (technician_id, type, montant, notes, date) VALUES (?, ?, ?, ?, ?)")
     ->execute([$targetId, $type, $storedMontant, $notes ?: null, $date]);

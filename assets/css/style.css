@@ -1021,6 +1021,8 @@ tr:hover td { background: var(--gray-50); }
 .movement-note { display: block; font-size: .75rem; color: var(--gray-400); }
 .movement-date { display: block; font-size: .72rem; color: var(--gray-400); }
 .movement-amount { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.movement-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.movement-item-service { opacity: .85; }
 
 /* Export page */
 .export-page { display: flex; flex-direction: column; gap: 16px; }
