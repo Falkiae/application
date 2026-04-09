@@ -6,7 +6,7 @@ $isAdm = isAdmin();
 $filterMonth = $_GET['month'] ?? date('Y-m');
 $filterTech = $isAdm ? (int)($_GET['tech'] ?? 0) : $techId;
 $filterPayment = $_GET['payment'] ?? '';
-$filterInvoice = isset($_GET['filter']) && $_GET['filter'] === 'invoice';
+$filterInvoice = $_GET['filter'] ?? ''; // 'pending' = à faire, 'sent' = envoyées
 
 // Build query
 $where = ["strftime('%Y-%m', s.date) = ?"];
@@ -22,8 +22,10 @@ if ($filterPayment) {
     $where[] = "s.paiement = ?";
     $params[] = $filterPayment;
 }
-if ($filterInvoice) {
-    $where[] = "s.facture_a_faire = 1";
+if ($filterInvoice === 'pending') {
+    $where[] = "s.facture_a_faire = 1 AND (s.facture_envoyee IS NULL OR s.facture_envoyee = 0)";
+} elseif ($filterInvoice === 'sent') {
+    $where[] = "s.facture_envoyee = 1";
 }
 $whereStr = implode(' AND ', $where);
 
@@ -64,36 +66,35 @@ for ($i = 0; $i < 12; $i++) {
 <div class="prestations-page">
     <!-- Filters -->
     <div class="filters-bar">
-        <div class="filter-group">
-            <select class="form-select filter-select" id="filterMonth" onchange="applyFilters()">
-                <?php foreach ($months as $m): ?>
-                <option value="<?= $m['value'] ?>" <?= $m['value'] === $filterMonth ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($m['label']) ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+        <select class="form-select filter-select" id="filterMonth" onchange="applyFilters()">
+            <?php foreach ($months as $m): ?>
+            <option value="<?= $m['value'] ?>" <?= $m['value'] === $filterMonth ? 'selected' : '' ?>>
+                <?= htmlspecialchars($m['label']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
         <?php if ($isAdm): ?>
-        <div class="filter-group">
-            <select class="form-select filter-select" id="filterTech" onchange="applyFilters()">
-                <option value="0">Tous les techniciens</option>
-                <?php foreach ($technicians as $t): ?>
-                <option value="<?= $t['id'] ?>" <?= $filterTech == $t['id'] ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($t['name']) ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+        <select class="form-select filter-select" id="filterTech" onchange="applyFilters()">
+            <option value="0">Tous les techniciens</option>
+            <?php foreach ($technicians as $t): ?>
+            <option value="<?= $t['id'] ?>" <?= $filterTech == $t['id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($t['name']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
         <?php endif; ?>
-        <div class="filter-group">
-            <select class="form-select filter-select" id="filterPayment" onchange="applyFilters()">
-                <option value="">Tout paiement</option>
-                <option value="cash" <?= $filterPayment==='cash'?'selected':'' ?>>Cash</option>
-                <option value="virement" <?= $filterPayment==='virement'?'selected':'' ?>>Virement</option>
-                <option value="qrcode" <?= $filterPayment==='qrcode'?'selected':'' ?>>QR Code</option>
-                <option value="facture" <?= $filterPayment==='facture'?'selected':'' ?>>Facture</option>
-            </select>
-        </div>
+        <select class="form-select filter-select" id="filterPayment" onchange="applyFilters()">
+            <option value="">Tout paiement</option>
+            <option value="cash" <?= $filterPayment==='cash'?'selected':'' ?>>Cash</option>
+            <option value="virement" <?= $filterPayment==='virement'?'selected':'' ?>>Virement</option>
+            <option value="qrcode" <?= $filterPayment==='qrcode'?'selected':'' ?>>QR Code</option>
+            <option value="facture" <?= $filterPayment==='facture'?'selected':'' ?>>Facture</option>
+        </select>
+        <select class="form-select filter-select" id="filterInvoice" onchange="applyFilters()">
+            <option value="">Toutes</option>
+            <option value="pending" <?= $filterInvoice==='pending'?'selected':'' ?>>Factures à faire</option>
+            <option value="sent" <?= $filterInvoice==='sent'?'selected':'' ?>>Factures envoyées</option>
+        </select>
     </div>
 
     <!-- Summary bar -->
@@ -112,7 +113,7 @@ for ($i = 0; $i < 12; $i++) {
     <?php else: ?>
     <div class="service-list">
         <?php foreach ($services as $s): ?>
-        <div class="service-card service-card-full">
+        <div class="service-card service-card-full" id="sc-<?= $s['id'] ?>">
             <div class="service-card-main" onclick="window.location='index.php?page=prestation_edit&id=<?= $s['id'] ?>'">
                 <div class="service-card-left">
                     <div class="tech-avatar tech-avatar-sm" style="background:<?= htmlspecialchars($s['tech_color']) ?>">
@@ -131,7 +132,11 @@ for ($i = 0; $i < 12; $i++) {
                         <div class="service-badges">
                             <span class="badge badge-<?= $s['paiement'] ?>"><?= $paiementLabels[$s['paiement']] ?? $s['paiement'] ?></span>
                             <?php if ($s['ticket_tva']): ?><span class="badge badge-tva">TVA</span><?php endif; ?>
-                            <?php if ($s['facture_a_faire']): ?><span class="badge badge-invoice">Facture à faire</span><?php endif; ?>
+                            <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
+                            <span class="badge badge-invoice">Facture à faire</span>
+                            <?php elseif ($s['facture_envoyee']): ?>
+                            <span class="badge badge-invoice-sent">Facture envoyée</span>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -145,11 +150,22 @@ for ($i = 0; $i < 12; $i++) {
                 </div>
             </div>
             <div class="service-card-actions">
+                <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
+                <button class="btn btn-invoice-send btn-sm" onclick="markFactureEnvoyee(event, <?= $s['id'] ?>)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                    Facture envoyée
+                </button>
+                <?php elseif ($s['facture_envoyee']): ?>
+                <button class="btn btn-invoice-undo btn-sm" onclick="markFactureEnvoyee(event, <?= $s['id'] ?>, 0)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Annuler envoi
+                </button>
+                <?php endif; ?>
                 <a href="index.php?page=prestation_edit&id=<?= $s['id'] ?>" class="btn-icon btn-edit" title="Modifier">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </a>
                 <button class="btn-icon btn-delete" title="Supprimer"
-                        onclick="deleteService(<?= $s['id'] ?>, '<?= htmlspecialchars($s['type_label']) ?>')">
+                        onclick="deleteService(<?= $s['id'] ?>, '<?= htmlspecialchars(addslashes($s['type_label'])) ?>')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                 </button>
             </div>
@@ -179,9 +195,11 @@ function applyFilters() {
     const month = document.getElementById('filterMonth').value;
     const tech = document.getElementById('filterTech')?.value || '0';
     const payment = document.getElementById('filterPayment').value;
+    const invoice = document.getElementById('filterInvoice').value;
     let url = `index.php?page=prestations&month=${month}`;
     if (tech !== '0') url += `&tech=${tech}`;
     if (payment) url += `&payment=${payment}`;
+    if (invoice) url += `&filter=${invoice}`;
     window.location.href = url;
 }
 
@@ -212,4 +230,22 @@ document.getElementById('confirmDelete').addEventListener('click', async functio
         this.textContent = 'Supprimer';
     }
 });
+
+async function markFactureEnvoyee(e, id, envoyee = 1) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('envoyee', envoyee);
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    const res = await fetch('api/facture_mark.php', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) {
+        window.location.reload();
+    } else {
+        alert(data.error || 'Erreur');
+        btn.disabled = false;
+    }
+}
 </script>

@@ -44,6 +44,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="photo_avant_path" id="editPhotoAvantPath" value="<?= htmlspecialchars($service['photo_avant'] ?? '') ?>">
         <input type="hidden" name="photo_apres_path" id="editPhotoApresPath" value="<?= htmlspecialchars($service['photo_apres'] ?? '') ?>">
+        <input type="hidden" name="facture_envoyee" id="editFactureEnvoyee" value="<?= (int)($service['facture_envoyee'] ?? 0) ?>">
 
         <div class="edit-grid">
             <!-- Left column: form -->
@@ -95,6 +96,15 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                             </label>
                         </div>
                     </div>
+                    <?php if ($service['facture_a_faire']): ?>
+                    <div class="form-group" id="factureEnvoyeeRow">
+                        <label class="form-label">Facture envoyée</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="editFactureEnvoyeeChk" <?= ($service['facture_envoyee'] ?? 0) ? 'checked' : '' ?> onchange="document.getElementById('editFactureEnvoyee').value=this.checked?1:0">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <?php endif; ?>
 
                     <div class="form-group">
                         <label class="form-label">Paiement</label>

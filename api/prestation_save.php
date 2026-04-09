@@ -22,6 +22,7 @@ $montant = (float)($_POST['montant'] ?? 0);
 $notes = trim($_POST['notes'] ?? '');
 $photoAvant = trim($_POST['photo_avant_path'] ?? '');
 $photoApres = trim($_POST['photo_apres_path'] ?? '');
+$factureEnvoyee = isset($_POST['facture_envoyee']) ? (int)$_POST['facture_envoyee'] : 0;
 
 // Validate
 if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) jsonResponse(['error' => 'Date invalide'], 400);
@@ -44,10 +45,10 @@ function sanitizePhotoPath(?string $path): ?string {
 
 if ($action === 'create') {
     $db->prepare("
-        INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, montant, photo_avant, photo_apres, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ")->execute([
-        $techId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $montant,
+        $techId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
         sanitizePhotoPath($photoAvant), sanitizePhotoPath($photoApres), $notes ?: null
     ]);
     $newId = (int)$db->lastInsertId();
@@ -86,19 +87,21 @@ if ($action === 'create') {
     $newValues = [
         'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
         'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
-        'montant'=>$montant,'notes'=>$notes,'photo_avant'=>$newPhotoAvant,'photo_apres'=>$newPhotoApres
+        'facture_envoyee'=>$factureEnvoyee,'montant'=>$montant,'notes'=>$notes,
+        'photo_avant'=>$newPhotoAvant,'photo_apres'=>$newPhotoApres
     ];
     $oldValues = [
         'date'=>$old['date'],'type_nettoyage_id'=>$old['type_nettoyage_id'],'lieu'=>$old['lieu'],
         'ticket_tva'=>$old['ticket_tva'],'paiement'=>$old['paiement'],'facture_a_faire'=>$old['facture_a_faire'],
-        'montant'=>$old['montant'],'notes'=>$old['notes'],'photo_avant'=>$old['photo_avant'],'photo_apres'=>$old['photo_apres']
+        'facture_envoyee'=>$old['facture_envoyee'] ?? 0,'montant'=>$old['montant'],'notes'=>$old['notes'],
+        'photo_avant'=>$old['photo_avant'],'photo_apres'=>$old['photo_apres']
     ];
 
     $db->prepare("
         UPDATE services SET date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, paiement=?,
-        facture_a_faire=?, montant=?, photo_avant=?, photo_apres=?, notes=?, updated_at=datetime('now','localtime')
+        facture_a_faire=?, facture_envoyee=?, montant=?, photo_avant=?, photo_apres=?, notes=?, updated_at=datetime('now','localtime')
         WHERE id=?
-    ")->execute([$date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $montant, $newPhotoAvant, $newPhotoApres, $notes ?: null, $id]);
+    ")->execute([$date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant, $newPhotoAvant, $newPhotoApres, $notes ?: null, $id]);
 
     // Fetch type label for notification
     $stmt = $db->prepare("SELECT label FROM cleaning_types WHERE id=?");

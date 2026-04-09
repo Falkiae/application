@@ -116,4 +116,10 @@ function initSchema(PDO $pdo): void {
         $pdo->prepare("INSERT INTO technicians (name, pin_hash, role, color) VALUES (?, ?, 'admin', '#596FF3')")
             ->execute([DEFAULT_ADMIN_NAME, $hash]);
     }
+
+    // Migrations: add columns that may not exist yet
+    $cols = array_column($pdo->query("PRAGMA table_info(services)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('facture_envoyee', $cols)) {
+        $pdo->exec("ALTER TABLE services ADD COLUMN facture_envoyee INTEGER DEFAULT 0");
+    }
 }

@@ -34,14 +34,37 @@ $stmtCash = $db->prepare($cashQuery);
 $stmtCash->execute($isAdm ? [] : [$techId]);
 $cashData = $stmtCash->fetchAll();
 
-// Recent services (last 10)
+// Pending invoices (facture_a_faire=1 AND facture_envoyee=0)
+$invoiceWhere = "facture_a_faire=1 AND (facture_envoyee IS NULL OR facture_envoyee=0)";
+$invoiceParams = [];
+if (!$isAdm) { $invoiceWhere .= " AND s.technician_id=?"; $invoiceParams[] = $techId; }
+
+$stmtInvoices = $db->prepare("
+    SELECT s.id, s.date, s.montant, s.paiement, ct.label as type_label, t.name as tech_name, t.color as tech_color
+    FROM services s
+    JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
+    JOIN technicians t ON t.id = s.technician_id
+    WHERE $invoiceWhere
+    ORDER BY s.date ASC
+    LIMIT 10
+");
+$stmtInvoices->execute($invoiceParams);
+$pendingInvoices = $stmtInvoices->fetchAll();
+$invoiceCount = count($pendingInvoices);
+
+// Count total pending (may be more than 10)
+$stmtInvCount = $db->prepare("SELECT COUNT(*) FROM services s WHERE $invoiceWhere");
+$stmtInvCount->execute($invoiceParams);
+$totalPendingInvoices = (int)$stmtInvCount->fetchColumn();
+
+// Recent services (last 8)
 if ($isAdm) {
     $stmtRecent = $db->prepare("
         SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label
         FROM services s
         JOIN technicians t ON t.id = s.technician_id
         JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
-        ORDER BY s.created_at DESC LIMIT 10
+        ORDER BY s.created_at DESC LIMIT 8
     ");
     $stmtRecent->execute([]);
 } else {
@@ -51,16 +74,11 @@ if ($isAdm) {
         JOIN technicians t ON t.id = s.technician_id
         JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
         WHERE s.technician_id = ?
-        ORDER BY s.created_at DESC LIMIT 10
+        ORDER BY s.created_at DESC LIMIT 8
     ");
     $stmtRecent->execute([$techId]);
 }
 $recentServices = $stmtRecent->fetchAll();
-
-// Invoices to do count
-$stmtInvoices = $db->prepare("SELECT COUNT(*) as cnt FROM services WHERE facture_a_faire=1 " . ($isAdm ? "" : "AND technician_id=?"));
-$stmtInvoices->execute($isAdm ? [] : [$techId]);
-$invoiceCount = $stmtInvoices->fetchColumn();
 
 $paiementLabels = ['cash'=>'Cash','virement'=>'Virement','qrcode'=>'QR Code','facture'=>'Facture'];
 $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
@@ -76,8 +94,8 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
             <div class="stat-info">
                 <span class="stat-value"><?= $statsToday['cnt'] ?></span>
                 <span class="stat-label">Aujourd'hui</span>
+                <span class="stat-amount"><?= number_format($statsToday['total'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="stat-amount"><?= number_format($statsToday['total'], 2, ',', '.') ?> €</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon stat-icon-purple">
@@ -86,22 +104,54 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
             <div class="stat-info">
                 <span class="stat-value"><?= $statsMonth['cnt'] ?></span>
                 <span class="stat-label">Ce mois</span>
+                <span class="stat-amount"><?= number_format($statsMonth['total'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="stat-amount"><?= number_format($statsMonth['total'], 2, ',', '.') ?> €</div>
         </div>
-        <?php if ($invoiceCount > 0): ?>
-        <div class="stat-card stat-card-warning">
+        <div class="stat-card <?= $totalPendingInvoices > 0 ? 'stat-card-warning' : '' ?>">
             <div class="stat-icon stat-icon-orange">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </div>
             <div class="stat-info">
-                <span class="stat-value"><?= $invoiceCount ?></span>
+                <span class="stat-value"><?= $totalPendingInvoices ?></span>
                 <span class="stat-label">Factures à faire</span>
+                <?php if ($totalPendingInvoices > 0): ?>
+                <a href="index.php?page=prestations&filter=pending" class="stat-link">Voir →</a>
+                <?php endif; ?>
             </div>
-            <a href="index.php?page=prestations&filter=invoice" class="stat-link">Voir →</a>
         </div>
-        <?php endif; ?>
     </div>
+
+    <!-- Pending invoices widget -->
+    <?php if ($totalPendingInvoices > 0): ?>
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+                Factures à faire
+                <span class="badge badge-invoice"><?= $totalPendingInvoices ?></span>
+            </h2>
+            <a href="index.php?page=prestations&filter=pending" class="btn-link">Voir tout →</a>
+        </div>
+        <div class="invoice-list">
+            <?php foreach ($pendingInvoices as $inv): ?>
+            <div class="invoice-item">
+                <div class="tech-avatar tech-avatar-sm" style="background:<?= htmlspecialchars($inv['tech_color']) ?>">
+                    <?= strtoupper(substr($inv['tech_name'], 0, 1)) ?>
+                </div>
+                <div class="invoice-info">
+                    <span class="invoice-type"><?= htmlspecialchars($inv['type_label']) ?></span>
+                    <span class="invoice-meta"><?= date('d/m/Y', strtotime($inv['date'])) ?><?php if ($isAdm): ?> · <?= htmlspecialchars($inv['tech_name']) ?><?php endif; ?></span>
+                </div>
+                <span class="invoice-amount"><?= number_format($inv['montant'], 2, ',', '.') ?> €</span>
+                <button class="btn btn-invoice-send btn-xs" onclick="markSent(this, <?= $inv['id'] ?>)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                    Envoyée
+                </button>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Cash section -->
     <div class="section-card">
@@ -164,8 +214,10 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
                 <div class="service-card-right">
                     <div class="service-amount"><?= number_format($s['montant'], 2, ',', '.') ?> €</div>
                     <span class="badge badge-<?= $s['paiement'] ?>"><?= $paiementLabels[$s['paiement']] ?? $s['paiement'] ?></span>
-                    <?php if ($s['facture_a_faire']): ?>
+                    <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
                     <span class="badge badge-invoice">Facture</span>
+                    <?php elseif ($s['facture_envoyee']): ?>
+                    <span class="badge badge-invoice-sent">✓ Envoyée</span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -174,3 +226,24 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+async function markSent(btn, id) {
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('envoyee', '1');
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    const res = await fetch('api/facture_mark.php', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) {
+        // Fade out the invoice item
+        const item = btn.closest('.invoice-item');
+        if (item) { item.style.opacity = '0'; item.style.transition = 'opacity .3s'; setTimeout(() => window.location.reload(), 300); }
+        else window.location.reload();
+    } else {
+        alert(data.error || 'Erreur');
+        btn.disabled = false;
+    }
+}
+</script>
