@@ -886,6 +886,8 @@ tr:hover td { background: var(--gray-50); }
 
 @media (min-width: 768px) {
   .mobile-menu-btn { display: none; }
+  .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .abonnements-page { gap: 20px; }
 }
 
 /* ========= Utilities ========= */
