@@ -888,6 +888,7 @@ tr:hover td { background: var(--gray-50); }
   .mobile-menu-btn { display: none; }
   .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
   .abonnements-page { gap: 20px; }
+  .abo-card-actions .btn { flex: 0 0 auto; }
 }
 
 /* ========= Utilities ========= */
