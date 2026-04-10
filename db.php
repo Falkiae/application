@@ -94,6 +94,38 @@ function initSchema(PDO $pdo): void {
             key TEXT PRIMARY KEY,
             value TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL UNIQUE,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS abonnements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            nettoyages_total INTEGER NOT NULL,
+            prix_total REAL DEFAULT 0,
+            notes TEXT,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (client_id) REFERENCES clients(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS abonnement_passages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            abonnement_id INTEGER NOT NULL,
+            technician_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            nettoyages_debites INTEGER DEFAULT 1,
+            photo_avant TEXT,
+            photo_apres TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (abonnement_id) REFERENCES abonnements(id),
+            FOREIGN KEY (technician_id) REFERENCES technicians(id)
+        );
     ");
 
     // Seed default cleaning types
@@ -117,9 +149,29 @@ function initSchema(PDO $pdo): void {
             ->execute([DEFAULT_ADMIN_NAME, $hash]);
     }
 
-    // Migrations: add columns that may not exist yet
+    // Migrations
     $cols = array_column($pdo->query("PRAGMA table_info(services)")->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('facture_envoyee', $cols)) {
         $pdo->exec("ALTER TABLE services ADD COLUMN facture_envoyee INTEGER DEFAULT 0");
+    }
+
+    // Migration: update cash_movements CHECK constraint to include achat_liquide
+    $cmSchema = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='cash_movements'")->fetchColumn();
+    if ($cmSchema && strpos($cmSchema, 'achat_liquide') === false) {
+        $pdo->exec("PRAGMA foreign_keys=OFF");
+        $pdo->exec("CREATE TABLE cash_movements_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            technician_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('initial','depot_banque','achat_liquide','note')),
+            montant REAL NOT NULL,
+            notes TEXT,
+            date TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (technician_id) REFERENCES technicians(id)
+        )");
+        $pdo->exec("INSERT INTO cash_movements_new SELECT * FROM cash_movements");
+        $pdo->exec("DROP TABLE cash_movements");
+        $pdo->exec("ALTER TABLE cash_movements_new RENAME TO cash_movements");
+        $pdo->exec("PRAGMA foreign_keys=ON");
     }
 }

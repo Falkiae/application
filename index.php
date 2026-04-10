@@ -16,6 +16,7 @@ $allPages = [
     'dashboard', 'login',
     'prestation_new', 'prestation_edit', 'prestations',
     'cash', 'export',
+    'abonnements', 'abonnement_detail',
     'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique'
 ];
 
@@ -57,17 +58,19 @@ if (isLoggedIn()) {
 
 $currentPage = $page;
 $pageTitle = match($page) {
-    'dashboard'       => 'Tableau de bord',
-    'prestation_new'  => 'Nouvelle prestation',
-    'prestation_edit' => 'Modifier prestation',
-    'prestations'     => 'Prestations',
-    'cash'            => 'Liquidités',
-    'export'          => 'Export Excel',
-    'admin/index'     => 'Administration',
-    'admin/techniciens' => 'Techniciens',
-    'admin/types'     => 'Types de nettoyage',
-    'admin/historique' => 'Historique',
-    default           => 'Keepnew'
+    'dashboard'          => 'Tableau de bord',
+    'prestation_new'     => 'Nouvelle prestation',
+    'prestation_edit'    => 'Modifier prestation',
+    'prestations'        => 'Prestations',
+    'cash'               => 'Liquidités',
+    'export'             => 'Export Excel',
+    'abonnements'        => 'Abonnements',
+    'abonnement_detail'  => 'Détail abonnement',
+    'admin/index'        => 'Administration',
+    'admin/techniciens'  => 'Techniciens',
+    'admin/types'        => 'Types de nettoyage',
+    'admin/historique'   => 'Historique',
+    default              => 'Keepnew'
 };
 ?>
 <!DOCTYPE html>
@@ -111,6 +114,10 @@ $pageTitle = match($page) {
             <a href="index.php?page=export" class="nav-item <?= $currentPage === 'export' ? 'active' : '' ?>">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
                 <span>Export Excel</span>
+            </a>
+            <a href="index.php?page=abonnements" class="nav-item <?= str_starts_with($currentPage, 'abonnement') ? 'active' : '' ?>">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 4v5"/><path d="M15 4v5"/><path d="M8 14h4"/><path d="M8 17h8"/></svg>
+                <span>Abonnements</span>
             </a>
             <?php if (isAdmin()): ?>
             <div class="nav-separator"></div>
@@ -177,9 +184,9 @@ $pageTitle = match($page) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
             <span>Cash</span>
         </a>
-        <a href="index.php?page=export" class="bnav-item <?= $currentPage === 'export' ? 'active' : '' ?>">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
-            <span>Export</span>
+        <a href="index.php?page=abonnements" class="bnav-item <?= str_starts_with($currentPage, 'abonnement') ? 'active' : '' ?>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 4v5"/><path d="M15 4v5"/><path d="M8 14h4"/><path d="M8 17h8"/></svg>
+            <span>Abonnements</span>
         </a>
     </nav>
 
@@ -205,6 +212,9 @@ $pageTitle = match($page) {
     <?php if (in_array($page, ['prestation_new', 'prestation_edit'])): ?>
     <script src="assets/js/camera.js"></script>
     <script src="assets/js/prestation.js"></script>
+    <?php endif; ?>
+    <?php if ($page === 'abonnement_detail'): ?>
+    <script src="assets/js/camera.js"></script>
     <?php endif; ?>
 </body>
 </html>

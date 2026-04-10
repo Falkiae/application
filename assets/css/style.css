@@ -1026,6 +1026,75 @@ tr:hover td { background: var(--gray-50); }
 .movement-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .movement-item-service { opacity: .85; }
 
+/* ── Abonnements ──────────────────────────────────────── */
+.abonnements-page { display: flex; flex-direction: column; gap: 16px; }
+.abonnements-toolbar { display: flex; justify-content: flex-end; }
+.abo-list { display: flex; flex-direction: column; gap: 14px; }
+
+.abo-card { background: #fff; border-radius: var(--radius); border: 1.5px solid var(--gray-200); overflow: hidden; }
+.abo-card-header { padding: 14px 16px 8px; cursor: pointer; }
+.abo-client-info { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.abo-client-name { font-size: 1rem; font-weight: 700; flex: 1; }
+.abo-counts { display: flex; align-items: baseline; gap: 8px; }
+.abo-restants { font-size: 1.4rem; font-weight: 800; }
+.abo-total-label { font-size: .78rem; color: var(--gray-400); }
+
+.abo-progress-wrap { height: 6px; background: var(--gray-100); margin: 0; }
+.abo-progress-bar { height: 100%; background: #596FF3; transition: width .4s; border-radius: 0; }
+.abo-status-epuise .abo-progress-bar { background: #dc2626; }
+.abo-status-faible  .abo-progress-bar { background: #f97316; }
+
+.abo-prix { padding: 6px 16px 0; font-size: .82rem; color: var(--gray-500); }
+.abo-prix-label { color: var(--gray-400); }
+
+.abo-card-actions { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; }
+.abo-card-actions .btn { flex: 1; }
+
+/* Status badges */
+.abo-status-badge { font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.abo-badge-actif   { background: #dcfce7; color: #166534; }
+.abo-badge-faible  { background: #ffedd5; color: #c2410c; }
+.abo-badge-epuise  { background: #fee2e2; color: #991b1b; }
+
+.text-green  { color: #16a34a; }
+.text-orange { color: #f97316; }
+.text-red    { color: #dc2626; }
+
+/* Detail page */
+.abo-detail-page { display: flex; flex-direction: column; gap: 20px; }
+.abo-detail-header { }
+.abo-detail-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.abo-detail-name { font-size: 1.3rem; font-weight: 700; margin: 0 0 6px; }
+.abo-detail-counts { text-align: right; }
+.abo-detail-restants { font-size: 2.5rem; font-weight: 800; line-height: 1; display: block; }
+.abo-detail-restants-label { font-size: .78rem; color: var(--gray-400); }
+.abo-progress-lg { height: 10px; background: var(--gray-100); border-radius: 5px; overflow: hidden; margin: 12px 0 8px; }
+.abo-detail-sub { font-size: .82rem; color: var(--gray-400); }
+.abo-detail-notes { margin-top: 8px; font-size: .85rem; color: var(--gray-600); font-style: italic; }
+
+/* Stepper */
+.stepper-wrapper { display: flex; align-items: center; gap: 8px; }
+.stepper-btn { width: 40px; height: 40px; border: 1.5px solid var(--gray-200); background: white; border-radius: var(--radius-sm); font-size: 1.3rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--gray-700); }
+.stepper-btn:hover { background: var(--gray-100); }
+.stepper-input { text-align: center; font-size: 1.1rem; font-weight: 700; }
+.label-optional { font-size: .75rem; color: var(--gray-400); font-weight: 400; }
+.btn-full { width: 100%; }
+
+/* Passage history */
+.passage-list { display: flex; flex-direction: column; gap: 12px; }
+.passage-item { border-bottom: 1px solid var(--gray-100); padding-bottom: 12px; }
+.passage-item:last-child { border-bottom: none; padding-bottom: 0; }
+.passage-item-top { display: flex; align-items: center; gap: 10px; }
+.passage-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.passage-date { font-size: .88rem; font-weight: 600; }
+.passage-tech { font-size: .78rem; color: var(--gray-400); }
+.passage-notes-text { font-size: .78rem; color: var(--gray-500); font-style: italic; }
+.passage-debit { font-size: .85rem; font-weight: 700; color: #dc2626; white-space: nowrap; }
+.passage-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.passage-photo-wrap { display: flex; flex-direction: column; gap: 4px; }
+.passage-photo-label { font-size: .7rem; color: var(--gray-400); text-align: center; }
+.passage-photo { width: 100%; height: 90px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--gray-200); }
+
 /* Export page */
 .export-page { display: flex; flex-direction: column; gap: 16px; }
 .export-icon { width: 64px; height: 64px; background: var(--primary-light); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
