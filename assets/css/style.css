@@ -886,9 +886,6 @@ tr:hover td { background: var(--gray-50); }
 
 @media (min-width: 768px) {
   .mobile-menu-btn { display: none; }
-  .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  .abonnements-page { gap: 20px; }
-  .abo-card-actions .btn { flex: 0 0 auto; }
 }
 
 /* ========= Utilities ========= */
@@ -1772,3 +1769,9 @@ select.form-input, .form-select {
   .page-content { padding: 12px; }
 }
 
+/* ── Desktop overrides (must come after all base styles) ── */
+@media (min-width: 768px) {
+  .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .abonnements-page { gap: 20px; }
+  .abo-card-actions .btn { flex: 0 0 auto; }
+}
