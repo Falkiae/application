@@ -1774,4 +1774,5 @@ select.form-input, .form-select {
   .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
   .abonnements-page { gap: 20px; }
   .abo-card-actions .btn { flex: 0 0 auto; }
+  .btn-full { width: auto; }
 }
