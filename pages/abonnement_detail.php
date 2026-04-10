@@ -265,7 +265,7 @@ async function submitPassage() {
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res  = await fetch('api/abonnement_passage.php', {method:'POST', body:fd});
     const data = await res.json();
-    if (data.success) { window.location.reload(); }
+    if (data.success) { window.location.href = 'index.php?page=abonnements'; }
     else {
         err.textContent = data.error || 'Erreur'; err.style.display = 'block';
         btn.disabled = false;

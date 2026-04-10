@@ -1769,6 +1769,8 @@ select.form-input, .form-select {
   .page-content { padding: 12px; }
 }
 
+.abo-last-passage { font-size: .75rem; color: var(--gray-400); margin-top: 4px; }
+
 /* ── Desktop overrides (must come after all base styles) ── */
 @media (min-width: 768px) {
   .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }

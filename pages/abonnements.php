@@ -4,7 +4,8 @@ $isAdm = isAdmin();
 
 $stmt = $db->query("
     SELECT a.*, c.nom as client_nom,
-        COALESCE(SUM(p.nettoyages_debites),0) as utilises
+        COALESCE(SUM(p.nettoyages_debites),0) as utilises,
+        MAX(p.date) as dernier_passage
     FROM abonnements a
     JOIN clients c ON c.id = a.client_id
     LEFT JOIN abonnement_passages p ON p.abonnement_id = a.id
@@ -61,6 +62,9 @@ unset($a);
                     </span>
                     <span class="abo-total-label"><?= $a['utilises'] ?> / <?= $a['nettoyages_total'] ?> utilisés</span>
                 </div>
+                <?php if ($a['dernier_passage']): ?>
+                <div class="abo-last-passage">Dernier passage : <?= date('d/m/Y', strtotime($a['dernier_passage'])) ?></div>
+                <?php endif; ?>
             </div>
 
             <div class="abo-progress-wrap">
