@@ -140,10 +140,12 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                         <div class="photo-edit-item">
                             <label class="photo-label">Avant</label>
                             <?php if ($service['photo_avant']): ?>
-                            <img src="uploads/<?= htmlspecialchars($service['photo_avant']) ?>" class="photo-thumb" id="editAvantImg" alt="Photo avant">
+                            <img src="uploads/<?= htmlspecialchars($service['photo_avant']) ?>" class="photo-thumb photo-thumb-clickable" id="editAvantImg" alt="Photo avant"
+                                 onclick="openLightbox('uploads/<?= htmlspecialchars($service['photo_avant']) ?>', 'Photo avant')">
                             <?php else: ?>
                             <div class="photo-placeholder-sm" id="editAvantPlaceholder">Aucune</div>
-                            <img id="editAvantImg" class="photo-thumb" style="display:none" alt="Photo avant">
+                            <img id="editAvantImg" class="photo-thumb photo-thumb-clickable" style="display:none" alt="Photo avant"
+                                 onclick="openLightbox(this.src, 'Photo avant')">
                             <?php endif; ?>
                             <label class="btn btn-outline btn-sm btn-camera-sm" for="editPhotoAvantInput">Changer</label>
                             <input type="file" id="editPhotoAvantInput" accept="image/*" class="photo-file-input">
@@ -154,10 +156,12 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                         <div class="photo-edit-item">
                             <label class="photo-label">Après</label>
                             <?php if ($service['photo_apres']): ?>
-                            <img src="uploads/<?= htmlspecialchars($service['photo_apres']) ?>" class="photo-thumb" id="editApresImg" alt="Photo après">
+                            <img src="uploads/<?= htmlspecialchars($service['photo_apres']) ?>" class="photo-thumb photo-thumb-clickable" id="editApresImg" alt="Photo après"
+                                 onclick="openLightbox('uploads/<?= htmlspecialchars($service['photo_apres']) ?>', 'Photo après')">
                             <?php else: ?>
                             <div class="photo-placeholder-sm" id="editApresPlaceholder">Aucune</div>
-                            <img id="editApresImg" class="photo-thumb" style="display:none" alt="Photo après">
+                            <img id="editApresImg" class="photo-thumb photo-thumb-clickable" style="display:none" alt="Photo après"
+                                 onclick="openLightbox(this.src, 'Photo après')">
                             <?php endif; ?>
                             <label class="btn btn-outline btn-sm btn-camera-sm" for="editPhotoApresInput">Changer</label>
                             <input type="file" id="editPhotoApresInput" accept="image/*" class="photo-file-input">
@@ -291,4 +295,42 @@ function clearEditPhoto(which) {
         }
     });
 });
+
+// Lightbox
+function openLightbox(src, label) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightboxLabel').textContent = label;
+    document.getElementById('lightboxDownload').href = src;
+    // Derive filename from path
+    const filename = src.split('/').pop();
+    document.getElementById('lightboxDownload').download = filename;
+    document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lightboxImg').src = '';
+}
+document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this) closeLightbox();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+});
 </script>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+    <div class="lightbox-inner">
+        <div class="lightbox-header">
+            <span class="lightbox-label" id="lightboxLabel"></span>
+            <div class="lightbox-actions">
+                <a class="btn btn-outline btn-sm lightbox-dl" id="lightboxDownload" href="#" download>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Télécharger
+                </a>
+                <button class="lightbox-close" onclick="closeLightbox()" aria-label="Fermer">&times;</button>
+            </div>
+        </div>
+        <img id="lightboxImg" class="lightbox-img" src="" alt="">
+    </div>
+</div>
