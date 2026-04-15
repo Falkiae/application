@@ -280,18 +280,22 @@ function clearEditPhoto(which) {
     const which = inputId.includes('Avant') ? 'avant' : 'apres';
     input.addEventListener('change', async function() {
         if (!this.files[0]) return;
-        const blob = await compressImage(this.files[0], 1200, 0.82);
-        const fd = new FormData();
-        fd.append('photo', blob, 'photo.jpg');
-        fd.append('csrf_token', document.getElementById('csrfToken').value);
-        const res = await fetch('api/photo_upload.php', {method:'POST', body:fd});
-        const data = await res.json();
-        if (data.path) {
-            const pathInput = document.getElementById(which === 'avant' ? 'editPhotoAvantPath' : 'editPhotoApresPath');
-            pathInput.value = data.path;
-            const img = document.getElementById(which === 'avant' ? 'editAvantImg' : 'editApresImg');
-            img.src = 'uploads/' + data.path;
-            img.style.display = 'block';
+        try {
+            const blob = await compressImage(this.files[0], 1200, 0.82);
+            const fd = new FormData();
+            fd.append('photo', blob, 'photo.jpg');
+            fd.append('csrf_token', document.getElementById('csrfToken').value);
+            const res = await fetch('api/photo_upload.php', {method:'POST', body:fd});
+            const data = await res.json();
+            if (data.path) {
+                const pathInput = document.getElementById(which === 'avant' ? 'editPhotoAvantPath' : 'editPhotoApresPath');
+                pathInput.value = data.path;
+                const img = document.getElementById(which === 'avant' ? 'editAvantImg' : 'editApresImg');
+                img.src = 'uploads/' + data.path;
+                img.style.display = 'block';
+            }
+        } catch(e) {
+            alert(e.message || 'Erreur lors du chargement de la photo.');
         }
     });
 });
