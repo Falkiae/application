@@ -99,8 +99,31 @@ function escHtml(str) {
     return div.innerHTML;
 }
 
+// Lazy-load heic2any only when a HEIC file is actually selected
+function _loadHeic2any() {
+    if (window.heic2any) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'assets/js/heic2any.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Impossible de charger le convertisseur HEIC.'));
+        document.head.appendChild(s);
+    });
+}
+
 // Image compression utility (used across pages)
 async function compressImage(file, maxWidth = 1200, quality = 0.82) {
+    // Convert HEIC/HEIF to JPEG before compression (Samsung Android)
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif'
+        || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+    if (isHeic) {
+        await _loadHeic2any();
+        let converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+        // heic2any returns an array for multi-frame HEIC (burst, live photo)
+        if (Array.isArray(converted)) converted = converted[0];
+        file = converted;
+    }
+
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = () => reject(new Error('Impossible de lire le fichier.'));
