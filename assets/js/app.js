@@ -111,12 +111,37 @@ function _loadHeic2any() {
     });
 }
 
+// Detect HEIC/HEIF by magic bytes (reliable even when Samsung Chrome
+// reports type="" or type="image/jpeg" for HEIC files)
+function _isHeicFile(file) {
+    // Fast path: trust type/extension when present
+    if (file.type === 'image/heic' || file.type === 'image/heif'
+        || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name)) {
+        return Promise.resolve(true);
+    }
+    // Slow path: read the first 12 bytes and check the ftyp box brand
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const b = new Uint8Array(e.target.result);
+            // ISO base media file format: box length (4) + 'ftyp' (4) + brand (4)
+            const ftyp = String.fromCharCode(b[4], b[5], b[6], b[7]);
+            if (ftyp !== 'ftyp') { resolve(false); return; }
+            const brand = String.fromCharCode(b[8], b[9], b[10], b[11]).toLowerCase();
+            resolve(brand.startsWith('heic') || brand.startsWith('heix') ||
+                    brand.startsWith('mif1') || brand.startsWith('msf1') ||
+                    brand.startsWith('mihe') || brand.startsWith('mihb'));
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsArrayBuffer(file.slice(0, 12));
+    });
+}
+
 // Image compression utility (used across pages)
 async function compressImage(file, maxWidth = 1200, quality = 0.82) {
     // Convert HEIC/HEIF to JPEG before compression (Samsung Android)
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif'
-        || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
-    if (isHeic) {
+    // Detection uses magic bytes so it works even when Chrome reports wrong type
+    if (await _isHeicFile(file)) {
         await _loadHeic2any();
         let converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
         // heic2any returns an array for multi-frame HEIC (burst, live photo)
