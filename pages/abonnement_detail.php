@@ -238,7 +238,7 @@ async function handlePassagePhoto(inputEl, which) {
             const clr = document.getElementById(which === 'avant' ? 'pAvantClear' : 'pApresClear');
             if (clr) clr.style.display = 'inline-flex';
         } else { ph.innerHTML = '<span>Erreur upload</span>'; ph.style.display = 'flex'; }
-    } catch(e) { ph.innerHTML = '<span>Erreur réseau</span>'; ph.style.display = 'flex'; }
+    } catch(e) { ph.innerHTML = `<span>${e.message || 'Erreur'}</span>`; ph.style.display = 'flex'; }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

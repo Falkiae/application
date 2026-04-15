@@ -101,10 +101,12 @@ function escHtml(str) {
 
 // Image compression utility (used across pages)
 async function compressImage(file, maxWidth = 1200, quality = 0.82) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Impossible de lire le fichier.'));
         reader.onload = (e) => {
             const img = new Image();
+            img.onerror = () => reject(new Error('Format non supporté. Choisissez une photo JPEG ou PNG depuis votre galerie.'));
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
@@ -115,7 +117,10 @@ async function compressImage(file, maxWidth = 1200, quality = 0.82) {
                 canvas.width = w;
                 canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                canvas.toBlob(resolve, 'image/jpeg', quality);
+                canvas.toBlob((blob) => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Compression échouée, réessayez.'));
+                }, 'image/jpeg', quality);
             };
             img.src = e.target.result;
         };

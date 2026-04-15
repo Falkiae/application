@@ -219,7 +219,7 @@ async function handlePhotoUpload(inputEl, which) {
             placeholder.style.display = 'flex';
         }
     } catch(e) {
-        placeholder.innerHTML = '<span>Erreur réseau</span>';
+        placeholder.innerHTML = `<span>${e.message || 'Erreur'}</span>`;
         placeholder.style.display = 'flex';
     }
 }
