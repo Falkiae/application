@@ -27,7 +27,7 @@ $preview = $stmt->fetch();
         </div>
         <h2 class="export-title">Export Excel mensuel</h2>
         <p class="export-desc">Génère un fichier .xlsx avec 3 onglets :<br>
-            <strong>Toutes les prestations</strong> · <strong>Sans facture</strong> · <strong>Mouvements cash</strong>
+            <strong>Toutes les prestations</strong> · <strong>Avec facture</strong> · <strong>Mouvements cash</strong>
         </p>
 
         <div class="form-group">

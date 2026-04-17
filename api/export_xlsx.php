@@ -31,8 +31,9 @@ $stmt = $db->prepare("
            CASE s.lieu WHEN 'domicile' THEN 'Domicile' ELSE 'Atelier' END as lieu,
            CASE s.ticket_tva WHEN 1 THEN 'Oui' ELSE 'Non' END as ticket_tva,
            CASE s.paiement WHEN 'cash' THEN 'Cash' WHEN 'virement' THEN 'Virement' WHEN 'qrcode' THEN 'QR Code' ELSE 'Sur facture' END as paiement,
-           CASE s.facture_a_faire WHEN 1 THEN 'Oui' ELSE 'Non' END as facture_a_faire,
-           s.montant, s.notes, s.created_at
+           CASE WHEN s.facture_a_faire = 1 OR s.facture_envoyee = 1 THEN 'Oui' ELSE 'Non' END as facture_a_faire,
+           s.montant, ROUND(s.montant / 1.21, 2) as montant_htva,
+           s.notes, s.created_at
     FROM services s
     JOIN technicians t ON t.id = s.technician_id
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
@@ -42,10 +43,10 @@ $stmt = $db->prepare("
 $stmt->execute($params1);
 $allServices = $stmt->fetchAll(PDO::FETCH_NUM);
 
-$headers1 = ['Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Facture à faire', 'Montant (€)', 'Notes', 'Enregistré le'];
+$headers1 = ['Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Facture', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Notes', 'Enregistré le'];
 
-// --- Sheet 2: Services without invoice ---
-$where2 = "strftime('%Y-%m', s.date) = ? AND (s.facture_a_faire = 1 OR s.ticket_tva = 0)";
+// --- Sheet 2: Services with invoice (facture à faire ou envoyée) ---
+$where2 = "strftime('%Y-%m', s.date) = ? AND (s.facture_a_faire = 1 OR s.facture_envoyee = 1)";
 $params2 = [$month];
 if (!$isAdm) { $where2 .= " AND s.technician_id = ?"; $params2[] = $techId; }
 
@@ -54,7 +55,9 @@ $stmt2 = $db->prepare("
            CASE s.lieu WHEN 'domicile' THEN 'Domicile' ELSE 'Atelier' END as lieu,
            CASE s.ticket_tva WHEN 1 THEN 'Oui' ELSE 'Non' END as ticket_tva,
            CASE s.paiement WHEN 'cash' THEN 'Cash' WHEN 'virement' THEN 'Virement' WHEN 'qrcode' THEN 'QR Code' ELSE 'Sur facture' END as paiement,
-           s.montant, s.notes
+           CASE WHEN s.facture_envoyee = 1 THEN 'Envoyée' ELSE 'À faire' END as statut_facture,
+           s.montant, ROUND(s.montant / 1.21, 2) as montant_htva,
+           s.notes
     FROM services s
     JOIN technicians t ON t.id = s.technician_id
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
@@ -62,9 +65,9 @@ $stmt2 = $db->prepare("
     ORDER BY s.date ASC
 ");
 $stmt2->execute($params2);
-$noInvoiceServices = $stmt2->fetchAll(PDO::FETCH_NUM);
+$invoiceServices = $stmt2->fetchAll(PDO::FETCH_NUM);
 
-$headers2 = ['Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Montant (€)', 'Notes'];
+$headers2 = ['Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Statut facture', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Notes'];
 
 // --- Sheet 3: Cash movements ---
 $where3 = "strftime('%Y-%m', date) = ?";
@@ -105,6 +108,6 @@ $headers3 = ['Date', 'Technicien', 'Type de mouvement', 'Montant (€)', 'Notes'
 // Generate XLSX
 $xlsx = new XlsxWriter();
 $xlsx->addSheet('Toutes les prestations', $headers1, $allServices);
-$xlsx->addSheet('Sans facture', $headers2, $noInvoiceServices);
+$xlsx->addSheet('Avec facture', $headers2, $invoiceServices);
 $xlsx->addSheet('Mouvements cash', $headers3, $allCash);
 $xlsx->download("keepnew_$monthLabel.xlsx");
