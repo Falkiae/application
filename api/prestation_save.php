@@ -9,7 +9,18 @@ if (!verifyCsrfToken($csrf)) jsonResponse(['error' => 'Token invalide'], 403);
 
 $db = getDB();
 $action = $_POST['action'] ?? 'create';
-$techId = currentUserId();
+$actorId = currentUserId();
+
+$assignedTechId = (int)($_POST['technician_id'] ?? 0);
+if (!$assignedTechId) $assignedTechId = $actorId;
+
+if (!isAdmin() && $assignedTechId !== $actorId) {
+    jsonResponse(['error' => 'Vous ne pouvez pas assigner une prestation à un autre technicien'], 403);
+}
+
+$stmt = $db->prepare("SELECT 1 FROM technicians WHERE id = ? AND active = 1");
+$stmt->execute([$assignedTechId]);
+if (!$stmt->fetchColumn()) jsonResponse(['error' => 'Technicien invalide'], 400);
 
 // Validate common fields
 $date = trim($_POST['date'] ?? '');
@@ -48,7 +59,7 @@ if ($action === 'create') {
         INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ")->execute([
-        $techId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
+        $assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
         sanitizePhotoPath($photoAvant), sanitizePhotoPath($photoApres), $notes ?: null
     ]);
     $newId = (int)$db->lastInsertId();
@@ -58,12 +69,12 @@ if ($action === 'create') {
     $stmt->execute([$newId]);
     $typeLabel = $stmt->fetchColumn() ?: 'Prestation';
 
-    addServiceHistory($newId, $techId, 'create', null, [
-        'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
+    addServiceHistory($newId, $actorId, 'create', null, [
+        'technician_id'=>$assignedTechId,'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
         'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'montant'=>$montant,'notes'=>$notes
     ]);
-    addNotification($techId, 'create', $newId,
+    addNotification($actorId, 'create', $newId,
         currentUserName() . " a ajouté une prestation (" . $typeLabel . ", " . number_format($montant, 2, ',', '.') . " €)"
     );
 
@@ -78,38 +89,38 @@ if ($action === 'create') {
     $stmt->execute([$id]);
     $old = $stmt->fetch();
     if (!$old) jsonResponse(['error' => 'Prestation introuvable'], 404);
-    if (!isAdmin() && $old['technician_id'] != $techId) jsonResponse(['error' => 'Accès refusé'], 403);
+    if (!isAdmin() && $old['technician_id'] != $actorId) jsonResponse(['error' => 'Accès refusé'], 403);
 
     // Handle photo deletion
     $newPhotoAvant = $photoAvant === '__deleted__' ? null : (sanitizePhotoPath($photoAvant) ?? $old['photo_avant']);
     $newPhotoApres = $photoApres === '__deleted__' ? null : (sanitizePhotoPath($photoApres) ?? $old['photo_apres']);
 
     $newValues = [
-        'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
+        'technician_id'=>$assignedTechId,'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
         'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'facture_envoyee'=>$factureEnvoyee,'montant'=>$montant,'notes'=>$notes,
         'photo_avant'=>$newPhotoAvant,'photo_apres'=>$newPhotoApres
     ];
     $oldValues = [
-        'date'=>$old['date'],'type_nettoyage_id'=>$old['type_nettoyage_id'],'lieu'=>$old['lieu'],
+        'technician_id'=>$old['technician_id'],'date'=>$old['date'],'type_nettoyage_id'=>$old['type_nettoyage_id'],'lieu'=>$old['lieu'],
         'ticket_tva'=>$old['ticket_tva'],'paiement'=>$old['paiement'],'facture_a_faire'=>$old['facture_a_faire'],
         'facture_envoyee'=>$old['facture_envoyee'] ?? 0,'montant'=>$old['montant'],'notes'=>$old['notes'],
         'photo_avant'=>$old['photo_avant'],'photo_apres'=>$old['photo_apres']
     ];
 
     $db->prepare("
-        UPDATE services SET date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, paiement=?,
+        UPDATE services SET technician_id=?, date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, paiement=?,
         facture_a_faire=?, facture_envoyee=?, montant=?, photo_avant=?, photo_apres=?, notes=?, updated_at=datetime('now','localtime')
         WHERE id=?
-    ")->execute([$date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant, $newPhotoAvant, $newPhotoApres, $notes ?: null, $id]);
+    ")->execute([$assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant, $newPhotoAvant, $newPhotoApres, $notes ?: null, $id]);
 
     // Fetch type label for notification
     $stmt = $db->prepare("SELECT label FROM cleaning_types WHERE id=?");
     $stmt->execute([$typeId]);
     $typeLabel = $stmt->fetchColumn() ?: 'Prestation';
 
-    addServiceHistory($id, $techId, 'update', $oldValues, $newValues);
-    addNotification($techId, 'update', $id,
+    addServiceHistory($id, $actorId, 'update', $oldValues, $newValues);
+    addNotification($actorId, 'update', $id,
         currentUserName() . " a modifié une prestation (" . $typeLabel . ", " . number_format($montant, 2, ',', '.') . " €)"
     );
 

@@ -103,6 +103,8 @@ function buildSummary() {
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
     const montant = document.getElementById('montantInput')?.value || '0';
     const notes = document.getElementById('notesInput')?.value || '';
+    const techSelect = document.querySelector('select[name="technician_id"]');
+    const techLabel = techSelect?.options[techSelect.selectedIndex]?.textContent.trim() || '';
 
     const lieuLabel = lieu === 'domicile' ? 'Domicile' : 'Atelier';
     const paiementLabels = {cash:'Cash',virement:'Virement',qrcode:'QR Code',facture:'Sur facture'};
@@ -117,6 +119,7 @@ function buildSummary() {
     const photoApres = uploadedPhotos.apres ? '✓ Photo uploadée' : 'Aucune photo';
 
     document.getElementById('summaryCard').innerHTML = `
+        <div class="summary-row"><span>Technicien</span><strong>${escHtml(techLabel)}</strong></div>
         <div class="summary-row"><span>Date</span><strong>${formatDate(date)}</strong></div>
         <div class="summary-row"><span>Type</span><strong>${escHtml(typeLabel)}</strong></div>
         <div class="summary-row"><span>Lieu</span><strong>${lieuLabel}</strong></div>

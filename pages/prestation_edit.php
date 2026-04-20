@@ -20,6 +20,7 @@ if (!isAdmin() && $service['technician_id'] != currentUserId()) {
 }
 
 $cleaningTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
+$technicians = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
 
 // Fetch history
 $histStmt = $db->prepare("
@@ -55,6 +56,17 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                     <div class="form-group">
                         <label class="form-label">Date</label>
                         <input type="date" name="date" class="form-input" value="<?= htmlspecialchars($service['date']) ?>" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Technicien</label>
+                        <select name="technician_id" class="form-select" required>
+                            <?php foreach ($technicians as $t): ?>
+                            <option value="<?= $t['id'] ?>" <?= $t['id'] == $service['technician_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($t['name']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -209,7 +221,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                                 </div>
                                 <?php if ($h['changed_fields']):
                                     $fields = json_decode($h['changed_fields'], true) ?? [];
-                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes'];
+                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes','technician_id'=>'Technicien'];
                                     $readable = array_map(fn($f) => $fieldLabels[$f] ?? $f, $fields);
                                 ?>
                                 <div class="history-fields">Modifié: <?= implode(', ', $readable) ?></div>

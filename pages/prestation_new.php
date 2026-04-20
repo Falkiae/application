@@ -1,6 +1,8 @@
 <?php
 $db = getDB();
 $cleaningTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
+$technicians = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
+$currentTechId = currentUserId();
 $today = date('Y-m-d');
 ?>
 
@@ -23,6 +25,16 @@ $today = date('Y-m-d');
             <div class="step-header">
                 <h2>Informations de base</h2>
                 <p class="step-desc">Date et type de nettoyage</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Technicien</label>
+                <select name="technician_id" class="form-select" required>
+                    <?php foreach ($technicians as $t): ?>
+                    <option value="<?= $t['id'] ?>" <?= $t['id'] == $currentTechId ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($t['name']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="form-group">
                 <label class="form-label">Date de la prestation</label>
