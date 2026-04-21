@@ -1,0 +1,386 @@
+<!-- ============================================================
+   FAQ – Nettoyage Voiture | keepnew.be
+   Bloc autonome : coller directement dans la page WordPress/Elementor
+   ============================================================ -->
+
+<style>
+/* -- Police Poppins (ignorée si déjà chargée par le thème) -- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* -- Reset minimal scopé -- */
+.kn-faq *, .kn-faq *::before, .kn-faq *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Section wrapper ── */
+.kn-faq {
+  font-family: 'Poppins', sans-serif;
+  background: #f4f3ee;
+  padding: 80px 20px;
+  width: 100%;
+}
+
+.kn-faq__inner {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* ── En-tête ── */
+.kn-faq__header {
+  text-align: center;
+  margin-bottom: 52px;
+}
+
+.kn-faq__eyebrow {
+  display: inline-block;
+  background: #eef0fe;
+  color: #596FF3;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 99px;
+  margin-bottom: 16px;
+}
+
+.kn-faq__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #13162f;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.kn-faq__subtitle {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* ── Liste des items ── */
+.kn-faq__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Item accordéon ── */
+.kn-faq__item {
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.kn-faq__item:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04);
+}
+
+.kn-faq__item.is-open {
+  border-color: #596FF3;
+  box-shadow: 0 4px 6px rgba(89,111,243,.08), 0 2px 4px rgba(89,111,243,.04);
+}
+
+/* ── Bouton question ── */
+.kn-faq__question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #13162f;
+  line-height: 1.4;
+  transition: background 0.2s ease, color 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.kn-faq__item.is-open .kn-faq__question {
+  background: #eef0fe;
+  color: #596FF3;
+  border-left-color: #596FF3;
+}
+
+/* ── Icône chevron ── */
+.kn-faq__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: #9ca3af;
+  transition: transform 0.25s ease, color 0.2s ease;
+}
+
+.kn-faq__item.is-open .kn-faq__icon {
+  transform: rotate(180deg);
+  color: #596FF3;
+}
+
+/* ── Réponse ── */
+.kn-faq__answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.kn-faq__answer p {
+  padding: 0 24px 20px 27px; /* 27px = 24px + 3px border-left offset */
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.75;
+}
+
+/* ── Responsive mobile ── */
+@media (max-width: 600px) {
+  .kn-faq {
+    padding: 56px 16px;
+  }
+
+  .kn-faq__title {
+    font-size: 1.5rem;
+  }
+
+  .kn-faq__subtitle {
+    font-size: 0.9rem;
+  }
+
+  .kn-faq__question {
+    padding: 16px 18px;
+    font-size: 0.88rem;
+  }
+
+  .kn-faq__answer p {
+    padding: 0 18px 16px 21px;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<!-- JSON-LD Schema (SEO) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Combien de temps dure un nettoyage de voiture à domicile ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "La durée varie selon la formule choisie : comptez environ 1h pour un shampoing des sièges, 1h30 pour un nettoyage intérieur-extérieur, et jusqu'à 4h pour une remise à neuf complète. Le temps peut varier légèrement en fonction de la taille et de l'état du véhicule."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Faut-il fournir l'eau et l'électricité pour le nettoyage à domicile ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Oui, nous avons besoin d'un accès à l'eau (robinet extérieur ou tuyau d'arrosage) et à une prise électrique à proximité du véhicule. Nous apportons tout le reste : matériel professionnel, produits et consommables."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Faut-il être présent pendant le nettoyage de ma voiture ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nous vous demandons d'être présent au début de l'intervention pour nous remettre les clés et indiquer les accès eau et électricité. Vous pouvez ensuite vaquer à vos occupations. Nous vous sollicitons à la fin pour vérifier ensemble le résultat avant le paiement."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Est-ce que toutes les taches sur les sièges disparaissent ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Notre shampoing par injection-extraction élimine la grande majorité des taches courantes (nourriture, boissons, transpiration, animaux). Certaines taches très anciennes ou d'origine chimique (encre, teinture) peuvent être atténuées sans disparaître totalement. Nous vous donnons un avis honnête dès le diagnostic sur place."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Combien de temps faut-il pour que les sièges sèchent après un shampoing ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Le temps de séchage varie entre 4 et 8 heures selon le type de tissu, l'humidité ambiante et la ventilation. Nous vous conseillons de laisser les fenêtres légèrement entrouvertes si possible pour accélérer le séchage."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Les produits utilisés sont-ils dangereux pour les enfants ou les animaux ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Non, nous utilisons des produits professionnels écoresponsables et hypoallergéniques. Ils sont sans danger pour les enfants, les animaux de compagnie et ne dégagent aucune odeur nocive. Votre véhicule est utilisable dès la fin de la prestation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Quelle est la différence entre un nettoyage à domicile et en atelier ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "La qualité du nettoyage est identique. L'avantage du domicile est le confort : nous venons chez vous ou sur votre lieu de travail. L'avantage de l'atelier à Visé (Liège) est le tarif plus avantageux, un espace d'attente sur place et l'accès aux services complémentaires comme le polissage et le traitement céramique."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "À quelle fréquence faut-il faire nettoyer sa voiture par un professionnel ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nous recommandons un nettoyage professionnel tous les 2 à 3 mois pour un entretien régulier. Si vous avez des enfants, des animaux ou que vous utilisez beaucoup votre véhicule, un nettoyage mensuel est idéal. Pour les fins de leasing, prévoyez une remise à neuf complète 2 à 4 semaines avant la restitution."
+      }
+    }
+  ]
+}
+</script>
+
+<section class="kn-faq" aria-label="Questions fréquentes">
+  <div class="kn-faq__inner">
+
+    <div class="kn-faq__header">
+      <span class="kn-faq__eyebrow">FAQ</span>
+      <h2 class="kn-faq__title">Questions fréquentes</h2>
+      <p class="kn-faq__subtitle">Tout ce que vous devez savoir avant votre nettoyage</p>
+    </div>
+
+    <div class="kn-faq__list">
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Combien de temps dure un nettoyage de voiture à domicile ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>La durée varie selon la formule choisie : comptez environ 1h pour un shampoing des sièges, 1h30 pour un nettoyage intérieur-extérieur, et jusqu'à 4h pour une remise à neuf complète. Le temps peut varier légèrement en fonction de la taille et de l'état du véhicule.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Faut-il fournir l'eau et l'électricité pour le nettoyage à domicile ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Oui, nous avons besoin d'un accès à l'eau (robinet extérieur ou tuyau d'arrosage) et à une prise électrique à proximité du véhicule. Nous apportons tout le reste : matériel professionnel, produits et consommables.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Faut-il être présent pendant le nettoyage de ma voiture ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Nous vous demandons d'être présent au début de l'intervention pour nous remettre les clés et indiquer les accès eau et électricité. Vous pouvez ensuite vaquer à vos occupations. Nous vous sollicitons à la fin pour vérifier ensemble le résultat avant le paiement.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Est-ce que toutes les taches sur les sièges disparaissent ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Notre shampoing par injection-extraction élimine la grande majorité des taches courantes (nourriture, boissons, transpiration, animaux). Certaines taches très anciennes ou d'origine chimique (encre, teinture) peuvent être atténuées sans disparaître totalement. Nous vous donnons un avis honnête dès le diagnostic sur place.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Combien de temps faut-il pour que les sièges sèchent après un shampoing ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Le temps de séchage varie entre 4 et 8 heures selon le type de tissu, l'humidité ambiante et la ventilation. Nous vous conseillons de laisser les fenêtres légèrement entrouvertes si possible pour accélérer le séchage.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Les produits utilisés sont-ils dangereux pour les enfants ou les animaux ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Non, nous utilisons des produits professionnels écoresponsables et hypoallergéniques. Ils sont sans danger pour les enfants, les animaux de compagnie et ne dégagent aucune odeur nocive. Votre véhicule est utilisable dès la fin de la prestation.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>Quelle est la différence entre un nettoyage à domicile et en atelier ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>La qualité du nettoyage est identique. L'avantage du domicile est le confort : nous venons chez vous ou sur votre lieu de travail. L'avantage de l'atelier à Visé (Liège) est le tarif plus avantageux, un espace d'attente sur place et l'accès aux services complémentaires comme le polissage et le traitement céramique.</p>
+        </div>
+      </div>
+
+      <div class="kn-faq__item">
+        <button class="kn-faq__question" aria-expanded="false">
+          <span>À quelle fréquence faut-il faire nettoyer sa voiture par un professionnel ?</span>
+          <svg class="kn-faq__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="kn-faq__answer">
+          <p>Nous recommandons un nettoyage professionnel tous les 2 à 3 mois pour un entretien régulier. Si vous avez des enfants, des animaux ou que vous utilisez beaucoup votre véhicule, un nettoyage mensuel est idéal. Pour les fins de leasing, prévoyez une remise à neuf complète 2 à 4 semaines avant la restitution.</p>
+        </div>
+      </div>
+
+    </div><!-- /.kn-faq__list -->
+  </div><!-- /.kn-faq__inner -->
+</section>
+
+<script>
+(function () {
+  var items = document.querySelectorAll('.kn-faq__item');
+
+  items.forEach(function (item) {
+    var btn = item.querySelector('.kn-faq__question');
+    var answer = item.querySelector('.kn-faq__answer');
+
+    btn.addEventListener('click', function () {
+      var isOpen = item.classList.contains('is-open');
+
+      /* Ferme tous les items */
+      items.forEach(function (other) {
+        var otherBtn = other.querySelector('.kn-faq__question');
+        var otherAnswer = other.querySelector('.kn-faq__answer');
+        other.classList.remove('is-open');
+        otherBtn.setAttribute('aria-expanded', 'false');
+        otherAnswer.style.maxHeight = '0';
+      });
+
+      /* Ouvre l'item cliqué s'il était fermé */
+      if (!isOpen) {
+        item.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+      }
+    });
+  });
+})();
+</script>
