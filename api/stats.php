@@ -40,32 +40,33 @@ $mStmt->execute($params);
 $mRaw = [];
 foreach ($mStmt->fetchAll() as $r) $mRaw[$r['m']] = $r;
 
-// Monthly per technician for stacked bars (only when showing all techs)
-$techMonthly = [];
-if ($techFilter === 0) {
-    $tmStmt = $db->prepare("
-        SELECT strftime('%m', s.date) as m, s.technician_id, t.name, t.color,
-               COALESCE(SUM(s.montant),0) as ca
-        FROM services s
-        JOIN technicians t ON t.id = s.technician_id
-        WHERE $where
-        GROUP BY m, s.technician_id
-        ORDER BY m, t.name
-    ");
-    $tmStmt->execute($params);
-    $techMap = [];
-    foreach ($tmStmt->fetchAll() as $r) {
-        if (!isset($techMap[$r['technician_id']])) {
-            $techMap[$r['technician_id']] = [
-                'name'   => $r['name'],
-                'color'  => $r['color'],
-                'months' => array_fill(0, 12, 0),
-            ];
-        }
-        $techMap[$r['technician_id']]['months'][(int)$r['m'] - 1] = round((float)$r['ca'], 2);
+// Monthly per service type for stacked bars
+$TYPE_COLORS = ['#596FF3','#22c55e','#f97316','#8b5cf6','#ef4444','#06b6d4','#eab308','#ec4899','#14b8a6','#f43f5e'];
+$typeMonthly = [];
+$typeMStmt = $db->prepare("
+    SELECT strftime('%m', s.date) as m, s.type_nettoyage_id, ct.label,
+           COALESCE(SUM(s.montant),0) as ca
+    FROM services s
+    JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
+    WHERE $where
+    GROUP BY m, s.type_nettoyage_id
+    ORDER BY m, ct.sort_order, ct.label
+");
+$typeMStmt->execute($params);
+$typeMap = [];
+$typeColorIdx = 0;
+foreach ($typeMStmt->fetchAll() as $r) {
+    if (!isset($typeMap[$r['type_nettoyage_id']])) {
+        $typeMap[$r['type_nettoyage_id']] = [
+            'label'  => $r['label'],
+            'color'  => $TYPE_COLORS[$typeColorIdx % count($TYPE_COLORS)],
+            'months' => array_fill(0, 12, 0),
+        ];
+        $typeColorIdx++;
     }
-    $techMonthly = array_values($techMap);
+    $typeMap[$r['type_nettoyage_id']]['months'][(int)$r['m'] - 1] = round((float)$r['ca'], 2);
 }
+$typeMonthly = array_values($typeMap);
 
 // Build complete 12-month array
 $monthly = [];
@@ -139,7 +140,7 @@ echo json_encode([
         'best_month_ca' => $bestMonth ? round((float)$bestMonth['ca'], 2) : 0,
     ],
     'monthly'      => $monthly,
-    'tech_monthly' => $techMonthly,
+    'type_monthly' => $typeMonthly,
     'by_type'      => $byType,
     'by_payment'   => $byPayment,
     'by_lieu'      => $byLieu,

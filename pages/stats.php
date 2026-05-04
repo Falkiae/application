@@ -185,11 +185,11 @@ $currentYear   = date('Y');
         if (chartMonthly) chartMonthly.destroy();
 
         const ctx = document.getElementById('chartMonthly').getContext('2d');
-        const stacked = d.tech_monthly && d.tech_monthly.length > 1;
+        const stacked = d.type_monthly && d.type_monthly.length > 1;
 
         const datasets = stacked
-            ? d.tech_monthly.map(t => ({
-                label: t.name,
+            ? d.type_monthly.map(t => ({
+                label: t.label,
                 data: t.months,
                 backgroundColor: t.color + 'bb',
                 borderColor: t.color,
@@ -222,7 +222,7 @@ $currentYear   = date('Y');
                     },
                     tooltip: {
                         callbacks: {
-                            label:      ctx  => ` ${stacked ? ctx.dataset.label + ': ' : ''}${fmt(ctx.parsed.y)}`,
+                            label:      ctx  => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`,
                             afterTitle: items => {
                                 const m = d.monthly[items[0].dataIndex];
                                 return `${m.nb} prestation${m.nb > 1 ? 's' : ''}`;
