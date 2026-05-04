@@ -17,6 +17,7 @@ $allPages = [
     'prestation_new', 'prestation_edit', 'prestations',
     'cash', 'export',
     'abonnements', 'abonnement_detail',
+    'stats',
     'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique'
 ];
 
@@ -66,6 +67,7 @@ $pageTitle = match($page) {
     'export'             => 'Export Excel',
     'abonnements'        => 'Abonnements',
     'abonnement_detail'  => 'Détail abonnement',
+    'stats'              => 'Statistiques',
     'admin/index'        => 'Administration',
     'admin/techniciens'  => 'Techniciens',
     'admin/types'        => 'Types de nettoyage',
@@ -118,6 +120,10 @@ $pageTitle = match($page) {
             <a href="index.php?page=abonnements" class="nav-item <?= str_starts_with($currentPage, 'abonnement') ? 'active' : '' ?>">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 4v5"/><path d="M15 4v5"/><path d="M8 14h4"/><path d="M8 17h8"/></svg>
                 <span>Abonnements</span>
+            </a>
+            <a href="index.php?page=stats" class="nav-item <?= $currentPage === 'stats' ? 'active' : '' ?>">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Statistiques</span>
             </a>
             <?php if (isAdmin()): ?>
             <div class="nav-separator"></div>
