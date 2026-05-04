@@ -6,16 +6,27 @@ $db = getDB();
 $isAdm = isAdmin();
 $currentTechId = currentUserId();
 
-$year      = (int)($_GET['year'] ?? date('Y'));
-$techFilter = (int)($_GET['tech'] ?? 0);
-$typeFilter = (int)($_GET['type'] ?? 0);
+$year        = (int)($_GET['year']  ?? date('Y'));
+$techFilter  = (int)($_GET['tech']  ?? 0);
+$typeFilter  = (int)($_GET['type']  ?? 0);
+$monthFilter = (int)($_GET['month'] ?? 0);
+if ($monthFilter < 1 || $monthFilter > 12) $monthFilter = 0;
 
 if (!$isAdm) $techFilter = $currentTechId;
 
-$where  = "strftime('%Y', s.date) = :year";
-$params = [':year' => (string)$year];
-if ($techFilter > 0) { $where .= " AND s.technician_id = :tech"; $params[':tech'] = $techFilter; }
-if ($typeFilter > 0) { $where .= " AND s.type_nettoyage_id = :type"; $params[':type'] = $typeFilter; }
+// WHERE for bar charts — full year, no month restriction
+$whereChart  = "strftime('%Y', s.date) = :year";
+$paramsChart = [':year' => (string)$year];
+if ($techFilter > 0) { $whereChart .= " AND s.technician_id = :tech"; $paramsChart[':tech'] = $techFilter; }
+if ($typeFilter > 0) { $whereChart .= " AND s.type_nettoyage_id = :type"; $paramsChart[':type'] = $typeFilter; }
+
+// WHERE for KPIs / doughnuts / table — includes optional month filter
+$where  = $whereChart;
+$params = $paramsChart;
+if ($monthFilter > 0) {
+    $where .= " AND strftime('%m', s.date) = :month";
+    $params[':month'] = str_pad($monthFilter, 2, '0', STR_PAD_LEFT);
+}
 
 // KPI
 $kpi = $db->prepare("SELECT COUNT(*) as nb, COALESCE(SUM(montant),0) as ca, COALESCE(AVG(montant),0) as avg_ca FROM services s WHERE $where");
@@ -27,16 +38,16 @@ $bm = $db->prepare("SELECT strftime('%m', s.date) as m, SUM(montant) as ca FROM 
 $bm->execute($params);
 $bestMonth = $bm->fetch();
 
-// Monthly totals (12 months, with domicile/atelier split)
+// Monthly totals (12 months, with domicile/atelier split) — always full year for bar chart
 $mStmt = $db->prepare("
     SELECT strftime('%m', s.date) as m,
            COALESCE(SUM(s.montant),0) as ca,
            COUNT(*) as nb,
            COALESCE(SUM(CASE WHEN s.lieu='domicile' THEN s.montant ELSE 0 END),0) as ca_dom,
            COALESCE(SUM(CASE WHEN s.lieu='atelier'  THEN s.montant ELSE 0 END),0) as ca_atl
-    FROM services s WHERE $where GROUP BY m ORDER BY m
+    FROM services s WHERE $whereChart GROUP BY m ORDER BY m
 ");
-$mStmt->execute($params);
+$mStmt->execute($paramsChart);
 $mRaw = [];
 foreach ($mStmt->fetchAll() as $r) $mRaw[$r['m']] = $r;
 
@@ -48,11 +59,11 @@ $typeMStmt = $db->prepare("
            COALESCE(SUM(s.montant),0) as ca
     FROM services s
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
-    WHERE $where
+    WHERE $whereChart
     GROUP BY m, s.type_nettoyage_id
     ORDER BY m, ct.sort_order, ct.label
 ");
-$typeMStmt->execute($params);
+$typeMStmt->execute($paramsChart);
 $typeMap = [];
 $typeColorIdx = 0;
 foreach ($typeMStmt->fetchAll() as $r) {
@@ -139,8 +150,9 @@ echo json_encode([
         'best_month'    => $bestMonth ? (int)$bestMonth['m'] : null,
         'best_month_ca' => $bestMonth ? round((float)$bestMonth['ca'], 2) : 0,
     ],
-    'monthly'      => $monthly,
-    'type_monthly' => $typeMonthly,
+    'selected_month' => $monthFilter,
+    'monthly'        => $monthly,
+    'type_monthly'   => $typeMonthly,
     'by_type'      => $byType,
     'by_payment'   => $byPayment,
     'by_lieu'      => $byLieu,

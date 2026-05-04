@@ -38,6 +38,24 @@ $currentYear   = date('Y');
                 <?php endforeach; ?>
             </select>
         </div>
+        <div class="filter-group">
+            <label class="form-label">Mois</label>
+            <select id="sMonth" class="form-select" onchange="loadStats()">
+                <option value="0">Tous les mois</option>
+                <option value="1">Janvier</option>
+                <option value="2">Février</option>
+                <option value="3">Mars</option>
+                <option value="4">Avril</option>
+                <option value="5">Mai</option>
+                <option value="6">Juin</option>
+                <option value="7">Juillet</option>
+                <option value="8">Août</option>
+                <option value="9">Septembre</option>
+                <option value="10">Octobre</option>
+                <option value="11">Novembre</option>
+                <option value="12">Décembre</option>
+            </select>
+        </div>
     </div>
 
     <!-- KPI cards -->
@@ -133,12 +151,13 @@ $currentYear   = date('Y');
 
     // ── Main fetch ────────────────────────────────────────────────
     async function loadStats() {
-        const year = val('sYear');
-        const tech = val('sTech');
-        const type = val('sType');
+        const year  = val('sYear');
+        const tech  = val('sTech');
+        const type  = val('sType');
+        const month = val('sMonth');
 
         try {
-            const res = await fetch(`api/stats.php?year=${year}&tech=${tech}&type=${type}`);
+            const res = await fetch(`api/stats.php?year=${year}&tech=${tech}&type=${type}&month=${month}`);
             const d   = await res.json();
 
             populateYears(d.years, year);
@@ -187,12 +206,15 @@ $currentYear   = date('Y');
         const ctx = document.getElementById('chartMonthly').getContext('2d');
         const stacked = d.type_monthly && d.type_monthly.length > 1;
 
+        const sel = d.selected_month; // 0 = no filter
+        const isActive = (i) => !sel || (i + 1) === sel;
+
         const datasets = stacked
             ? d.type_monthly.map(t => ({
                 label: t.label,
                 data: t.months,
-                backgroundColor: t.color + 'bb',
-                borderColor: t.color,
+                backgroundColor: t.months.map((_, i) => t.color + (isActive(i) ? 'bb' : '22')),
+                borderColor:     t.months.map((_, i) => t.color + (isActive(i) ? ''   : '44')),
                 borderWidth: 1,
                 borderRadius: 4,
                 borderSkipped: false,
@@ -200,8 +222,8 @@ $currentYear   = date('Y');
             : [{
                 label: 'CA',
                 data: d.monthly.map(m => m.ca),
-                backgroundColor: '#596FF3bb',
-                borderColor: '#596FF3',
+                backgroundColor: d.monthly.map((_, i) => '#596FF3' + (isActive(i) ? 'bb' : '22')),
+                borderColor:     d.monthly.map((_, i) => '#596FF3' + (isActive(i) ? ''   : '44')),
                 borderWidth: 1,
                 borderRadius: 4,
                 borderSkipped: false,
