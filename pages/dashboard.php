@@ -23,23 +23,21 @@ if ($isAdm) {
 $stmtMonth->execute($isAdm ? [$thisMonth] : [$thisMonth, $techId]);
 $statsMonth = $stmtMonth->fetch();
 
-// Global cash total
+// Global cash total — outflows (depot_banque, achat_liquide) are stored negative
 if ($isAdm) {
     $stmtCash = $db->query("
         SELECT
-            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE type='initial'),0) +
-            COALESCE((SELECT SUM(montant) FROM services WHERE paiement='cash'),0) -
-            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE type='depot_banque'),0) as global_solde
+            COALESCE((SELECT SUM(montant) FROM cash_movements),0) +
+            COALESCE((SELECT SUM(montant) FROM services WHERE paiement='cash'),0) as global_solde
     ");
     $globalCash = (float)$stmtCash->fetchColumn();
 } else {
     $stmtCash = $db->prepare("
         SELECT
-            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=? AND type='initial'),0) +
-            COALESCE((SELECT SUM(montant) FROM services WHERE technician_id=? AND paiement='cash'),0) -
-            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=? AND type='depot_banque'),0) as solde
+            COALESCE((SELECT SUM(montant) FROM cash_movements WHERE technician_id=?),0) +
+            COALESCE((SELECT SUM(montant) FROM services WHERE technician_id=? AND paiement='cash'),0) as solde
     ");
-    $stmtCash->execute([$techId, $techId, $techId]);
+    $stmtCash->execute([$techId, $techId]);
     $globalCash = (float)$stmtCash->fetchColumn();
 }
 
