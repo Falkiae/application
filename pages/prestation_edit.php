@@ -20,6 +20,20 @@ if (!isAdmin() && $service['technician_id'] != currentUserId()) {
 }
 
 $cleaningTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
+
+// If the service's type was deactivated, add it to the list so it gets correctly pre-selected
+$activeTypeIds = array_map('intval', array_column($cleaningTypes, 'id'));
+if (!in_array((int)$service['type_nettoyage_id'], $activeTypeIds)) {
+    $stmt = $db->prepare("SELECT id, label FROM cleaning_types WHERE id = ?");
+    $stmt->execute([$service['type_nettoyage_id']]);
+    $inactiveType = $stmt->fetch();
+    if ($inactiveType) {
+        array_unshift($cleaningTypes, [
+            'id'    => $inactiveType['id'],
+            'label' => $inactiveType['label'] . ' (inactif)',
+        ]);
+    }
+}
 $technicians = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
 
 // Fetch history
