@@ -1771,6 +1771,46 @@ select.form-input, .form-select {
 
 .abo-last-passage { font-size: .75rem; color: var(--gray-400); margin-top: 4px; }
 
+/* Abonnements filter tabs */
+.abonnements-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.abo-filter-tabs { display: flex; gap: 4px; background: var(--gray-100); border-radius: 10px; padding: 3px; }
+.abo-filter-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px;
+  font-size: .85rem; font-weight: 500; text-decoration: none;
+  color: var(--gray-400); transition: all .15s;
+}
+.abo-filter-tab.active { background: var(--white); color: var(--dark); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.abo-tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: var(--primary); color: #fff;
+  border-radius: 9px; font-size: .7rem; font-weight: 700;
+}
+.abo-filter-tab:not(.active) .abo-tab-count { background: var(--gray-300); }
+
+/* Archive status badge */
+.abo-badge-archive { background: #f3f4f6; color: var(--gray-400); }
+
+/* Archive / restore icon buttons */
+.btn-icon.btn-archive { color: #f59e0b; }
+.btn-icon.btn-archive:hover { background: #fef3c7; color: #d97706; }
+.btn-icon.btn-restore { color: #22c55e; }
+.btn-icon.btn-restore:hover { background: #dcfce7; color: #16a34a; }
+
+/* Warning button variant */
+.btn-warning { background: #f59e0b; color: #fff; border: none; }
+.btn-warning:hover { background: #d97706; }
+
+/* Delete confirm checkbox */
+.abo-confirm-check {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 12px 0 0; padding: 12px; border-radius: 8px;
+  background: #fef2f2; border: 1px solid #fecaca;
+  font-size: .875rem; color: #dc2626; cursor: pointer; line-height: 1.4;
+}
+.abo-confirm-check input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: #dc2626; width: 16px; height: 16px; }
+
 /* ── Desktop overrides (must come after all base styles) ── */
 @media (min-width: 768px) {
   .abo-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }

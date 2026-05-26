@@ -2,6 +2,10 @@
 $db    = getDB();
 $isAdm = isAdmin();
 
+$filterStatus = $_GET['status'] ?? 'actif';
+if (!in_array($filterStatus, ['actif', 'archive'])) $filterStatus = 'actif';
+$whereActive = $filterStatus === 'archive' ? 'a.active = 0' : 'a.active = 1';
+
 $stmt = $db->query("
     SELECT a.*, c.nom as client_nom,
         COALESCE(SUM(p.nettoyages_debites),0) as utilises,
@@ -9,7 +13,7 @@ $stmt = $db->query("
     FROM abonnements a
     JOIN clients c ON c.id = a.client_id
     LEFT JOIN abonnement_passages p ON p.abonnement_id = a.id
-    WHERE a.active = 1
+    WHERE $whereActive
     GROUP BY a.id
     ORDER BY c.nom ASC
 ");
@@ -23,23 +27,38 @@ foreach ($abonnements as &$a) {
     $a['status']   = $a['restants'] <= 0 ? 'epuise' : ($a['restants'] <= 2 ? 'faible' : 'actif');
 }
 unset($a);
+
+$countActive   = (int)$db->query("SELECT COUNT(*) FROM abonnements WHERE active=1")->fetchColumn();
+$countArchived = (int)$db->query("SELECT COUNT(*) FROM abonnements WHERE active=0")->fetchColumn();
 ?>
 
 <div class="abonnements-page">
-    <?php if ($isAdm): ?>
     <div class="abonnements-toolbar">
+        <div class="abo-filter-tabs">
+            <a href="index.php?page=abonnements&status=actif"
+               class="abo-filter-tab <?= $filterStatus === 'actif' ? 'active' : '' ?>">
+                Actifs
+                <?php if ($countActive > 0): ?><span class="abo-tab-count"><?= $countActive ?></span><?php endif; ?>
+            </a>
+            <a href="index.php?page=abonnements&status=archive"
+               class="abo-filter-tab <?= $filterStatus === 'archive' ? 'active' : '' ?>">
+                Archivés
+                <?php if ($countArchived > 0): ?><span class="abo-tab-count"><?= $countArchived ?></span><?php endif; ?>
+            </a>
+        </div>
+        <?php if ($isAdm && $filterStatus === 'actif'): ?>
         <button class="btn btn-primary" onclick="showNewAboModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             Nouvel abonnement
         </button>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
 
     <?php if (empty($abonnements)): ?>
     <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 4v5"/><path d="M15 4v5"/></svg>
-        <p>Aucun abonnement actif</p>
-        <?php if ($isAdm): ?>
+        <p><?= $filterStatus === 'archive' ? 'Aucun abonnement archivé' : 'Aucun abonnement actif' ?></p>
+        <?php if ($isAdm && $filterStatus === 'actif'): ?>
         <button class="btn btn-primary btn-sm" onclick="showNewAboModal()">Créer un abonnement</button>
         <?php endif; ?>
     </div>
@@ -55,6 +74,9 @@ unset($a);
                         <?php elseif ($a['status'] === 'faible'): ?>Bientôt épuisé
                         <?php else: ?>Actif<?php endif; ?>
                     </span>
+                    <?php if ($filterStatus === 'archive'): ?>
+                    <span class="abo-status-badge abo-badge-archive">Archivé</span>
+                    <?php endif; ?>
                 </div>
                 <div class="abo-counts">
                     <span class="abo-restants <?= $a['restants'] <= 0 ? 'text-red' : ($a['restants'] <= 2 ? 'text-orange' : 'text-green') ?>">
@@ -76,21 +98,44 @@ unset($a);
             <?php endif; ?>
 
             <div class="abo-card-actions">
-                <?php if ($a['status'] !== 'epuise'): ?>
-                <a href="index.php?page=abonnement_detail&id=<?= $a['id'] ?>" class="btn btn-primary btn-sm">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                    Encoder un passage
-                </a>
+                <?php if ($filterStatus === 'actif'): ?>
+                    <?php if ($a['status'] !== 'epuise'): ?>
+                    <a href="index.php?page=abonnement_detail&id=<?= $a['id'] ?>" class="btn btn-primary btn-sm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        Encoder un passage
+                    </a>
+                    <?php else: ?>
+                    <a href="index.php?page=abonnement_detail&id=<?= $a['id'] ?>" class="btn btn-outline btn-sm">Voir historique</a>
+                    <?php endif; ?>
+                    <?php if ($isAdm): ?>
+                    <button class="btn-icon btn-edit"
+                        data-id="<?= $a['id'] ?>"
+                        data-total="<?= $a['nettoyages_total'] ?>"
+                        data-prix="<?= (float)$a['prix_total'] ?>"
+                        data-notes="<?= htmlspecialchars($a['notes'] ?? '') ?>"
+                        onclick="editAbo(this)" title="Modifier">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-archive"
+                        onclick="archiveAbo(<?= $a['id'] ?>, '<?= htmlspecialchars(addslashes($a['client_nom'])) ?>')"
+                        title="Archiver">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    </button>
+                    <?php endif; ?>
                 <?php else: ?>
-                <a href="index.php?page=abonnement_detail&id=<?= $a['id'] ?>" class="btn btn-outline btn-sm">Voir historique</a>
-                <?php endif; ?>
-                <?php if ($isAdm): ?>
-                <button class="btn-icon btn-edit" onclick="editAbo(<?= $a['id'] ?>, <?= $a['nettoyages_total'] ?>, <?= $a['prix_total'] ?>, <?= json_encode($a['notes'] ?? '') ?>)" title="Modifier">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button class="btn-icon btn-delete" onclick="deleteAbo(<?= $a['id'] ?>, '<?= htmlspecialchars(addslashes($a['client_nom'])) ?>')" title="Désactiver">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                </button>
+                    <a href="index.php?page=abonnement_detail&id=<?= $a['id'] ?>" class="btn btn-outline btn-sm">Voir historique</a>
+                    <?php if ($isAdm): ?>
+                    <button class="btn-icon btn-restore"
+                        onclick="restoreAbo(<?= $a['id'] ?>, '<?= htmlspecialchars(addslashes($a['client_nom'])) ?>')"
+                        title="Restaurer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    </button>
+                    <button class="btn-icon btn-delete"
+                        onclick="deleteAboPermanent(<?= $a['id'] ?>, '<?= htmlspecialchars(addslashes($a['client_nom'])) ?>')"
+                        title="Supprimer définitivement">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -99,8 +144,8 @@ unset($a);
     <?php endif; ?>
 </div>
 
-<!-- New/Edit abonnement modal (admin) -->
 <?php if ($isAdm): ?>
+<!-- New / Edit modal -->
 <div class="modal-overlay" id="aboModal">
     <div class="modal modal-lg">
         <div class="modal-header">
@@ -146,17 +191,51 @@ unset($a);
     </div>
 </div>
 
-<!-- Delete confirmation -->
+<!-- Archive confirmation -->
+<div class="modal-overlay" id="aboArchiveModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </div>
+        <h3 class="modal-title">Archiver l'abonnement ?</h3>
+        <p class="modal-body" id="aboArchiveBody"></p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="document.getElementById('aboArchiveModal').classList.remove('open')">Annuler</button>
+            <button class="btn btn-warning" id="aboArchiveConfirm">Archiver</button>
+        </div>
+    </div>
+</div>
+
+<!-- Restore confirmation -->
+<div class="modal-overlay" id="aboRestoreModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </div>
+        <h3 class="modal-title">Restaurer l'abonnement ?</h3>
+        <p class="modal-body" id="aboRestoreBody"></p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="document.getElementById('aboRestoreModal').classList.remove('open')">Annuler</button>
+            <button class="btn btn-primary" id="aboRestoreConfirm">Restaurer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Permanent delete confirmation -->
 <div class="modal-overlay" id="aboDeleteModal">
     <div class="modal">
         <div class="modal-icon modal-icon-danger">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </div>
-        <h3 class="modal-title">Désactiver l'abonnement ?</h3>
-        <p class="modal-body" id="aboDeleteBody">L'abonnement sera archivé.</p>
+        <h3 class="modal-title">Supprimer définitivement ?</h3>
+        <p class="modal-body" id="aboDeleteBody"></p>
+        <label class="abo-confirm-check">
+            <input type="checkbox" id="aboDeleteCheck" onchange="document.getElementById('aboDeleteBtn').disabled=!this.checked">
+            Je confirme la suppression définitive et irréversible
+        </label>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="document.getElementById('aboDeleteModal').classList.remove('open')">Annuler</button>
-            <button class="btn btn-danger" id="aboDeleteConfirm">Désactiver</button>
+            <button class="btn btn-outline" onclick="closeAboDeleteModal()">Annuler</button>
+            <button class="btn btn-danger" id="aboDeleteBtn" disabled>Supprimer définitivement</button>
         </div>
     </div>
 </div>
@@ -176,13 +255,14 @@ function showNewAboModal() {
     document.getElementById('aboModalError').style.display = 'none';
     document.getElementById('aboModal').classList.add('open');
 }
-function editAbo(id, total, prix, notes) {
+function editAbo(btn) {
+    const { id, total, prix, notes } = btn.dataset;
     document.getElementById('aboModalTitle').textContent = 'Modifier l\'abonnement';
-    document.getElementById('aboId').value = id;
+    document.getElementById('aboId').value       = id;
     document.getElementById('aboClientNom').disabled = true;
-    document.getElementById('aboTotal').value = total;
-    document.getElementById('aboPrix').value = prix || '';
-    document.getElementById('aboNotes').value = notes || '';
+    document.getElementById('aboTotal').value    = total;
+    document.getElementById('aboPrix').value     = prix || '';
+    document.getElementById('aboNotes').value    = notes || '';
     document.getElementById('aboSaveBtn').textContent = 'Enregistrer';
     document.getElementById('aboModalError').style.display = 'none';
     document.getElementById('aboModal').classList.add('open');
@@ -208,28 +288,82 @@ async function saveAbo() {
     fd.append('prix_total', prix || '0');
     fd.append('notes', notes);
     fd.append('csrf_token', document.getElementById('csrfToken').value);
-    const res  = await fetch('api/abonnement_save.php', {method:'POST', body:fd});
-    const data = await res.json();
-    if (data.success) { window.location.reload(); }
-    else { err.textContent = data.error || 'Erreur'; err.style.display = 'block'; }
+    try {
+        const res  = await fetch('api/abonnement_save.php', {method:'POST', body:fd});
+        const data = await res.json();
+        if (data.success) { window.location.reload(); }
+        else { err.textContent = data.error || 'Erreur'; err.style.display = 'block'; }
+    } catch(e) {
+        err.textContent = 'Erreur réseau'; err.style.display = 'block';
+    }
 }
 
-// ── Delete ────────────────────────────────────────────────
-let _aboDelId = null;
-function deleteAbo(id, nom) {
-    _aboDelId = id;
-    document.getElementById('aboDeleteBody').textContent = `Désactiver l'abonnement de "${nom}" ? L'historique des passages sera conservé.`;
-    document.getElementById('aboDeleteModal').classList.add('open');
+// ── Archive ───────────────────────────────────────────────
+let _aboArchiveId = null;
+function archiveAbo(id, nom) {
+    _aboArchiveId = id;
+    document.getElementById('aboArchiveBody').textContent =
+        `Archiver l'abonnement de "${nom}" ? Il sera masqué de la liste principale mais son historique sera conservé. Vous pourrez le restaurer depuis l'onglet Archivés.`;
+    document.getElementById('aboArchiveModal').classList.add('open');
 }
-document.getElementById('aboDeleteConfirm')?.addEventListener('click', async function() {
-    if (!_aboDelId) return;
-    this.disabled = true; this.textContent = '...';
+document.getElementById('aboArchiveConfirm')?.addEventListener('click', async function() {
+    if (!_aboArchiveId) return;
+    this.disabled = true; this.textContent = '…';
     const fd = new FormData();
-    fd.append('id', _aboDelId);
+    fd.append('id', _aboArchiveId);
+    fd.append('action', 'archive');
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res  = await fetch('api/abonnement_delete.php', {method:'POST', body:fd});
     const data = await res.json();
     if (data.success) { window.location.reload(); }
-    else { alert(data.error || 'Erreur'); this.disabled = false; this.textContent = 'Désactiver'; }
+    else { alert(data.error || 'Erreur'); this.disabled = false; this.textContent = 'Archiver'; }
+});
+
+// ── Restore ───────────────────────────────────────────────
+let _aboRestoreId = null;
+function restoreAbo(id, nom) {
+    _aboRestoreId = id;
+    document.getElementById('aboRestoreBody').textContent =
+        `Restaurer l'abonnement de "${nom}" dans la liste des abonnements actifs ?`;
+    document.getElementById('aboRestoreModal').classList.add('open');
+}
+document.getElementById('aboRestoreConfirm')?.addEventListener('click', async function() {
+    if (!_aboRestoreId) return;
+    this.disabled = true; this.textContent = '…';
+    const fd = new FormData();
+    fd.append('id', _aboRestoreId);
+    fd.append('action', 'restore');
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    const res  = await fetch('api/abonnement_delete.php', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) { window.location.href = 'index.php?page=abonnements'; }
+    else { alert(data.error || 'Erreur'); this.disabled = false; this.textContent = 'Restaurer'; }
+});
+
+// ── Permanent delete ──────────────────────────────────────
+let _aboDelId = null;
+function deleteAboPermanent(id, nom) {
+    _aboDelId = id;
+    document.getElementById('aboDeleteBody').textContent =
+        `Supprimer définitivement l'abonnement de "${nom}" ainsi que tout son historique de passages ? Cette action est irréversible.`;
+    document.getElementById('aboDeleteCheck').checked = false;
+    document.getElementById('aboDeleteBtn').disabled  = true;
+    document.getElementById('aboDeleteModal').classList.add('open');
+}
+function closeAboDeleteModal() {
+    document.getElementById('aboDeleteModal').classList.remove('open');
+    _aboDelId = null;
+}
+document.getElementById('aboDeleteBtn')?.addEventListener('click', async function() {
+    if (!_aboDelId) return;
+    this.disabled = true; this.textContent = 'Suppression…';
+    const fd = new FormData();
+    fd.append('id', _aboDelId);
+    fd.append('action', 'delete');
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    const res  = await fetch('api/abonnement_delete.php', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) { window.location.reload(); }
+    else { alert(data.error || 'Erreur'); this.disabled = false; this.textContent = 'Supprimer définitivement'; }
 });
 </script>
