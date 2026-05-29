@@ -3,6 +3,39 @@ let currentStep = 1;
 const totalSteps = 9;
 const uploadedPhotos = { avant: null, apres: null };
 
+const FACTURE_THRESHOLD = 250;
+let autoFacture = false; // true = facture_a_faire was set by the threshold rule
+
+function setFactureOui(checked) {
+    const target = document.querySelector(`input[name="facture_a_faire"][value="${checked ? '1' : '0'}"]`);
+    if (!target) return;
+    target.checked = true;
+    document.querySelectorAll('input[name="facture_a_faire"]').forEach(r => {
+        r.closest('.toggle-option')?.classList.remove('selected');
+    });
+    target.closest('.toggle-option')?.classList.add('selected');
+}
+
+function checkFactureThreshold(amount) {
+    const notice  = document.getElementById('factureAutoNotice');
+    const isAbove = amount > FACTURE_THRESHOLD;
+    const factureOui = document.querySelector('input[name="facture_a_faire"][value="1"]');
+
+    if (isAbove) {
+        if (!factureOui?.checked) {
+            setFactureOui(true);
+            autoFacture = true;
+        }
+        if (notice) notice.style.display = 'flex';
+    } else {
+        if (autoFacture) {
+            setFactureOui(false);
+            autoFacture = false;
+        }
+        if (notice) notice.style.display = 'none';
+    }
+}
+
 function updateProgress() {
     const pct = (currentStep / totalSteps) * 100;
     document.getElementById('progressBar').style.width = pct + '%';
@@ -91,6 +124,7 @@ function wizardPrev() {
 
 function setAmount(val) {
     document.getElementById('montantInput').value = val;
+    checkFactureThreshold(val);
 }
 
 function buildSummary() {
@@ -252,18 +286,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Montant threshold — auto-activate facture_a_faire above 250 €
+    document.getElementById('montantInput')?.addEventListener('input', function() {
+        checkFactureThreshold(parseFloat(this.value) || 0);
+    });
+
+    // If user manually changes facture_a_faire, relinquish auto control
+    document.querySelectorAll('input[name="facture_a_faire"]').forEach(radio => {
+        radio.addEventListener('change', () => { autoFacture = false; });
+    });
+
     // Auto-check facture_a_faire + pre-fill billing note when paiement=facture
     document.querySelectorAll('input[name="paiement"]').forEach(radio => {
         radio.addEventListener('change', function() {
             if (this.value === 'facture') {
-                const factureOui = document.querySelector('input[name="facture_a_faire"][value="1"]');
-                if (factureOui) {
-                    factureOui.checked = true;
-                    document.querySelectorAll('input[name="facture_a_faire"]').forEach(r => {
-                        r.closest('.toggle-option')?.classList.remove('selected');
-                    });
-                    factureOui.closest('.toggle-option')?.classList.add('selected');
-                }
+                setFactureOui(true);
+                autoFacture = false; // payment choice takes precedence over threshold rule
                 const notesInput = document.getElementById('notesInput');
                 if (notesInput && !notesInput.value.trim()) {
                     notesInput.value = 'Infos facturation : Nom complet, adresse, n° TVA';

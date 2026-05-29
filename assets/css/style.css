@@ -1819,6 +1819,22 @@ select.form-input, .form-select {
   .btn-full { width: auto; }
 }
 
+/* Facture auto-threshold notice (prestation wizard step 7) */
+.facture-auto-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: .875rem;
+  font-weight: 500;
+}
+.facture-auto-notice svg { flex-shrink: 0; width: 18px; height: 18px; }
+
 /* ── Statistics page ── */
 .stats-page { display: flex; flex-direction: column; gap: 20px; }
 
