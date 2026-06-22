@@ -1978,6 +1978,7 @@ select.form-input, .form-select {
 .pt-sub-table th { padding: 6px 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; font-size: .68rem; border-bottom: 1px solid var(--gray-200); text-align: left; }
 .pt-sub-table td { padding: 6px 10px; border-bottom: 1px solid var(--gray-100); color: var(--dark); }
 .pt-sub-table tbody tr:last-child td { border-bottom: none; }
+.pt-sub-actions { display: flex; gap: 4px; align-items: center; justify-content: flex-end; white-space: nowrap; }
 .tech-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
 /* Clock widget */

@@ -109,7 +109,8 @@ if ($isAdm) {
 
     foreach ($techStats as $ts) {
         $sessStmt = $db->prepare("
-            SELECT date(debut) as day,
+            SELECT id,
+                   date(debut) as day,
                    strftime('%H:%M', debut) as h_debut,
                    strftime('%H:%M', fin) as h_fin,
                    CASE WHEN fin IS NOT NULL THEN
@@ -118,7 +119,8 @@ if ($isAdm) {
                            CAST(((julianday(fin)-julianday(debut))*24 - CAST((julianday(fin)-julianday(debut))*24 AS INTEGER))*60 AS INTEGER)
                        )
                    ELSE 'En cours'
-                   END as duree
+                   END as duree,
+                   COALESCE(notes, '') as notes
             FROM pointages WHERE technician_id=? AND strftime('%Y-%m', debut)=?
             ORDER BY debut ASC
         ");
@@ -197,7 +199,7 @@ $currentYear = (int)date('Y');
             <p style="color:var(--gray-400);font-size:.8rem;padding:6px 0;">Aucune session ce mois-ci.</p>
             <?php else: ?>
             <table class="pt-sub-table">
-              <thead><tr><th>Date</th><th>Début</th><th>Fin</th><th>Durée</th></tr></thead>
+              <thead><tr><th>Date</th><th>Début</th><th>Fin</th><th>Durée</th><th></th></tr></thead>
               <tbody>
                 <?php foreach ($techSessions[$ts['id']] as $sess): ?>
                 <tr>
@@ -205,6 +207,21 @@ $currentYear = (int)date('Y');
                   <td><?= htmlspecialchars($sess['h_debut']) ?></td>
                   <td><?= $sess['h_fin'] ?? '<em style="color:var(--gray-400)">En cours</em>' ?></td>
                   <td><?= htmlspecialchars($sess['duree']) ?></td>
+                  <td class="pt-sub-actions" onclick="event.stopPropagation()">
+                    <button class="btn-icon btn-edit"
+                        data-id="<?= $sess['id'] ?>"
+                        data-date="<?= htmlspecialchars($sess['day']) ?>"
+                        data-debut="<?= htmlspecialchars($sess['h_debut']) ?>"
+                        data-fin="<?= htmlspecialchars($sess['h_fin'] ?? '') ?>"
+                        data-notes="<?= htmlspecialchars($sess['notes']) ?>"
+                        onclick="openPtEdit(this)" title="Modifier">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-delete"
+                        onclick="deletePtSession(<?= $sess['id'] ?>)" title="Supprimer">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                    </button>
+                  </td>
                 </tr>
                 <?php endforeach; ?>
               </tbody>
@@ -227,7 +244,7 @@ $currentYear = (int)date('Y');
     <div class="pt-status-badge pt-active">
       <span class="pt-dot"></span> En travail
     </div>
-    <div class="pt-timer" id="liveTimer" data-debut="<?= htmlspecialchars($openSession['debut']) ?>">00:00:00</div>
+    <div class="pt-timer" id="liveTimer" data-debut-ts="<?= strtotime($openSession['debut']) ?>">00:00:00</div>
     <p class="pt-since">Depuis <?= date('H:i', strtotime($openSession['debut'])) ?></p>
     <button class="btn btn-stop-pt" id="btnStop" onclick="stopSession()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -324,14 +341,51 @@ $currentYear = (int)date('Y');
 
 </div><!-- .pointage-page -->
 
+<?php if ($isAdm): ?>
+<!-- Modal édition pointage (admin) -->
+<div class="modal-overlay" id="ptEditOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Modifier le pointage</h3>
+      <button class="modal-close" onclick="closePtEdit()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ptEditId">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input type="date" id="ptEditDate" class="form-input">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Heure de début</label>
+          <input type="time" id="ptEditDebut" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Heure de fin <span style="color:var(--gray-400);font-weight:400">(optionnel)</span></label>
+          <input type="time" id="ptEditFin" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes <span style="color:var(--gray-400);font-weight:400">(optionnel)</span></label>
+        <textarea id="ptEditNotes" class="form-input" rows="2" style="resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePtEdit()">Annuler</button>
+      <button class="btn" onclick="savePtEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function() {
-  // Live timer
+  // Live timer — use Unix timestamp (from PHP strtotime) to avoid browser timezone offset
   const timerEl = document.getElementById('liveTimer');
   if (timerEl) {
-    const debut = new Date(timerEl.dataset.debut.replace(' ', 'T'));
+    const debutMs = parseInt(timerEl.dataset.debutTs) * 1000;
     function tick() {
-      const diff = Math.floor((Date.now() - debut.getTime()) / 1000);
+      const diff = Math.floor((Date.now() - debutMs) / 1000);
       const h = Math.floor(diff / 3600);
       const m = Math.floor((diff % 3600) / 60);
       const s = diff % 60;
@@ -388,6 +442,47 @@ $currentYear = (int)date('Y');
     detail.style.display = open ? 'none' : 'table-row';
     const icon = row.querySelector('.pt-toggle-icon');
     if (icon) icon.style.transform = open ? '' : 'rotate(180deg)';
+  };
+
+  // Admin: open edit modal
+  window.openPtEdit = function(btn) {
+    document.getElementById('ptEditId').value    = btn.dataset.id;
+    document.getElementById('ptEditDate').value  = btn.dataset.date;
+    document.getElementById('ptEditDebut').value = btn.dataset.debut;
+    document.getElementById('ptEditFin').value   = btn.dataset.fin;
+    document.getElementById('ptEditNotes').value = btn.dataset.notes;
+    document.getElementById('ptEditOverlay').classList.add('open');
+  };
+  window.closePtEdit = function() {
+    document.getElementById('ptEditOverlay').classList.remove('open');
+  };
+  window.savePtEdit = function() {
+    const CSRF    = document.getElementById('csrfToken').value;
+    const id      = document.getElementById('ptEditId').value;
+    const date    = document.getElementById('ptEditDate').value;
+    const h_debut = document.getElementById('ptEditDebut').value;
+    const h_fin   = document.getElementById('ptEditFin').value;
+    const notes   = document.getElementById('ptEditNotes').value;
+    if (!date || !h_debut) { alert('La date et l\'heure de début sont requises.'); return; }
+    const body = new URLSearchParams({ csrf_token: CSRF, action: 'update', id, date, h_debut, h_fin, notes });
+    fetch('api/pointage_edit.php', { method: 'POST', body })
+      .then(r => r.json())
+      .then(d => { if (d.success) { location.reload(); } else { alert(d.error || 'Erreur'); } })
+      .catch(() => alert('Erreur réseau'));
+  };
+
+  // Admin: delete a session
+  window.deletePtSession = function(id) {
+    if (!confirm('Supprimer cette session de pointage ?')) return;
+    const CSRF = document.getElementById('csrfToken').value;
+    fetch('api/pointage_edit.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `csrf_token=${encodeURIComponent(CSRF)}&action=delete&id=${id}`
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) { location.reload(); } else { alert(d.error || 'Erreur'); } })
+    .catch(() => alert('Erreur réseau'));
   };
 })();
 </script>
