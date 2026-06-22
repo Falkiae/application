@@ -17,7 +17,7 @@ $allPages = [
     'prestation_new', 'prestation_edit', 'prestations',
     'cash', 'export',
     'abonnements', 'abonnement_detail',
-    'stats',
+    'stats', 'pointage',
     'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique'
 ];
 
@@ -68,6 +68,7 @@ $pageTitle = match($page) {
     'abonnements'        => 'Abonnements',
     'abonnement_detail'  => 'Détail abonnement',
     'stats'              => 'Statistiques',
+    'pointage'           => 'Pointage',
     'admin/index'        => 'Administration',
     'admin/techniciens'  => 'Techniciens',
     'admin/types'        => 'Types de nettoyage',
@@ -125,6 +126,10 @@ $pageTitle = match($page) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 <span>Statistiques</span>
             </a>
+            <a href="index.php?page=pointage" class="nav-item <?= $currentPage === 'pointage' ? 'active' : '' ?>">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Pointage</span>
+            </a>
             <?php if (isAdmin()): ?>
             <div class="nav-separator"></div>
             <a href="index.php?page=admin/index" class="nav-item <?= str_starts_with($currentPage, 'admin') ? 'active' : '' ?>">
@@ -155,11 +160,17 @@ $pageTitle = match($page) {
         <header class="top-header">
             <h1 class="page-title"><?= htmlspecialchars($pageTitle) ?></h1>
             <div class="header-actions">
+                <button class="btn-notif" id="qrBtn" aria-label="QR Code paiement" title="QR Code paiement" onclick="openQR()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="5" y="5" width="3" height="3"/><rect x="16" y="5" width="3" height="3"/><rect x="5" y="16" width="3" height="3"/><path d="M14 14h3v3"/><path d="M17 14h3v7h-3"/><path d="M14 17v4"/></svg>
+                </button>
                 <button class="btn-notif" id="notifBtn" aria-label="Notifications">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                     <?php if ($unreadCount > 0): ?>
                     <span class="notif-badge"><?= $unreadCount > 9 ? '9+' : $unreadCount ?></span>
                     <?php endif; ?>
+                </button>
+                <button class="btn-notif mobile-menu-btn" id="hamburgerBtn" aria-label="Menu" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 </button>
             </div>
         </header>
@@ -176,9 +187,9 @@ $pageTitle = match($page) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             <span>Accueil</span>
         </a>
-        <a href="index.php?page=prestations" class="bnav-item <?= $currentPage === 'prestations' ? 'active' : '' ?>">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            <span>Prestations</span>
+        <a href="index.php?page=pointage" class="bnav-item <?= $currentPage === 'pointage' ? 'active' : '' ?>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Pointer</span>
         </a>
         <a href="index.php?page=prestation_new" class="bnav-item bnav-center <?= $currentPage === 'prestation_new' ? 'active' : '' ?>">
             <div class="bnav-fab">
@@ -195,6 +206,18 @@ $pageTitle = match($page) {
             <span>Abonnements</span>
         </a>
     </nav>
+
+    <!-- Sidebar overlay (mobile drawer) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- QR Code overlay -->
+    <div class="qr-overlay" id="qrOverlay" onclick="closeQR()">
+        <div class="qr-overlay-inner" onclick="event.stopPropagation()">
+            <img src="assets/img/qr_payment.png" alt="QR Code paiement" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect width=%22200%22 height=%22200%22 fill=%22%23eee%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22>QR à placer ici</text></svg>'">
+            <p class="qr-overlay-label">Scanner pour payer</p>
+            <button class="qr-close-btn" onclick="closeQR()">Fermer</button>
+        </div>
+    </div>
 
     <!-- Notification panel -->
     <div class="notif-overlay" id="notifOverlay"></div>
@@ -215,6 +238,25 @@ $pageTitle = match($page) {
     <input type="hidden" id="currentUserId" value="<?= currentUserId() ?>">
 
     <script src="assets/js/app.js"></script>
+    <script>
+    // QR overlay
+    function openQR()  { document.getElementById('qrOverlay').classList.add('open'); }
+    function closeQR() { document.getElementById('qrOverlay').classList.remove('open'); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeQR(); closeSidebar(); } });
+
+    // Mobile sidebar drawer
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const isOpen  = sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', !isOpen);
+        overlay.classList.toggle('active', !isOpen);
+    }
+    function closeSidebar() {
+        document.querySelector('.sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+    }
+    </script>
     <?php if (in_array($page, ['prestation_new', 'prestation_edit'])): ?>
     <script src="assets/js/camera.js"></script>
     <script src="assets/js/prestation.js"></script>

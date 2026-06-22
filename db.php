@@ -126,6 +126,17 @@ function initSchema(PDO $pdo): void {
             FOREIGN KEY (abonnement_id) REFERENCES abonnements(id),
             FOREIGN KEY (technician_id) REFERENCES technicians(id)
         );
+
+        CREATE TABLE IF NOT EXISTS pointages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            technician_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            debut TEXT NOT NULL,
+            fin TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (technician_id) REFERENCES technicians(id)
+        );
     ");
 
     // Seed default cleaning types
