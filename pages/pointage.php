@@ -326,8 +326,6 @@ $currentYear = (int)date('Y');
 
 <script>
 (function() {
-  const CSRF = document.getElementById('csrfToken').value;
-
   // Live timer
   const timerEl = document.getElementById('liveTimer');
   if (timerEl) {
@@ -344,6 +342,7 @@ $currentYear = (int)date('Y');
   }
 
   function callPointage(action, btnId) {
+    const CSRF = document.getElementById('csrfToken').value;
     const btn = document.getElementById(btnId);
     if (btn) btn.disabled = true;
     fetch('api/pointage_save.php', {
