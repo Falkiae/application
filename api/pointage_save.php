@@ -17,8 +17,8 @@ if ($action === 'start') {
     $open->execute([$techId]);
     if ($open->fetch()) jsonResponse(['error' => 'Une session est déjà en cours'], 409);
 
-    $db->prepare("INSERT INTO pointages (technician_id, date, debut) VALUES (?, date('now','localtime'), datetime('now','localtime'))")
-       ->execute([$techId]);
+    $db->prepare("INSERT INTO pointages (technician_id, date, debut) VALUES (?, ?, ?)")
+       ->execute([$techId, date('Y-m-d'), date('Y-m-d H:i:s')]);
     jsonResponse(['success' => true, 'action' => 'started']);
 }
 
@@ -28,6 +28,6 @@ if ($action === 'stop') {
     $session = $open->fetch();
     if (!$session) jsonResponse(['error' => 'Aucune session ouverte'], 404);
 
-    $db->prepare("UPDATE pointages SET fin=datetime('now','localtime') WHERE id=?")->execute([$session['id']]);
+    $db->prepare("UPDATE pointages SET fin=? WHERE id=?")->execute([date('Y-m-d H:i:s'), $session['id']]);
     jsonResponse(['success' => true, 'action' => 'stopped']);
 }

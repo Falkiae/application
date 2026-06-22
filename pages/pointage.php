@@ -244,7 +244,7 @@ $currentYear = (int)date('Y');
     <div class="pt-status-badge pt-active">
       <span class="pt-dot"></span> En travail
     </div>
-    <div class="pt-timer" id="liveTimer" data-debut-ts="<?= strtotime($openSession['debut']) ?>">00:00:00</div>
+    <div class="pt-timer" id="liveTimer" data-elapsed="<?= max(0, time() - strtotime($openSession['debut'])) ?>">00:00:00</div>
     <p class="pt-since">Depuis <?= date('H:i', strtotime($openSession['debut'])) ?></p>
     <button class="btn btn-stop-pt" id="btnStop" onclick="stopSession()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -380,16 +380,17 @@ $currentYear = (int)date('Y');
 
 <script>
 (function() {
-  // Live timer — use Unix timestamp (from PHP strtotime) to avoid browser timezone offset
+  // Live timer — elapsed seconds calculated server-side (PHP time() - strtotime(debut))
+  // avoids any browser/server timezone mismatch
   const timerEl = document.getElementById('liveTimer');
   if (timerEl) {
-    const debutMs = parseInt(timerEl.dataset.debutTs) * 1000;
+    let elapsed = parseInt(timerEl.dataset.elapsed) || 0;
     function tick() {
-      const diff = Math.floor((Date.now() - debutMs) / 1000);
-      const h = Math.floor(diff / 3600);
-      const m = Math.floor((diff % 3600) / 60);
-      const s = diff % 60;
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
       timerEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      elapsed++;
     }
     tick();
     setInterval(tick, 1000);
