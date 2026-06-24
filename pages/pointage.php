@@ -154,6 +154,10 @@ $currentYear = (int)date('Y');
         <option value="<?= $y ?>" <?= $y === $adminYear ? 'selected' : '' ?>><?= $y ?></option>
         <?php endfor; ?>
       </select>
+      <button class="btn btn-sm" onclick="openPtCreate()" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter
+      </button>
       <a id="exportLink" href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-sm" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
         Exporter
@@ -342,15 +346,23 @@ $currentYear = (int)date('Y');
 </div><!-- .pointage-page -->
 
 <?php if ($isAdm): ?>
-<!-- Modal édition pointage (admin) -->
+<!-- Modal édition/création pointage (admin) -->
 <div class="modal-overlay" id="ptEditOverlay">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title">Modifier le pointage</h3>
+      <h3 class="modal-title" id="ptEditTitle">Modifier le pointage</h3>
       <button class="modal-close" onclick="closePtEdit()">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="ptEditId">
+      <div class="form-group" id="ptEditTechGroup" style="display:none;">
+        <label class="form-label">Technicien</label>
+        <select id="ptEditTech" class="form-input">
+          <?php foreach ($techStats as $ts): ?>
+          <option value="<?= $ts['id'] ?>"><?= htmlspecialchars($ts['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Date</label>
         <input type="date" id="ptEditDate" class="form-input">
@@ -445,8 +457,10 @@ $currentYear = (int)date('Y');
     if (icon) icon.style.transform = open ? '' : 'rotate(180deg)';
   };
 
-  // Admin: open edit modal
+  // Admin: open edit modal (existing session)
   window.openPtEdit = function(btn) {
+    document.getElementById('ptEditTitle').textContent = 'Modifier le pointage';
+    document.getElementById('ptEditTechGroup').style.display = 'none';
     document.getElementById('ptEditId').value    = btn.dataset.id;
     document.getElementById('ptEditDate').value  = btn.dataset.date;
     document.getElementById('ptEditDebut').value = btn.dataset.debut;
@@ -454,9 +468,23 @@ $currentYear = (int)date('Y');
     document.getElementById('ptEditNotes').value = btn.dataset.notes;
     document.getElementById('ptEditOverlay').classList.add('open');
   };
+
+  // Admin: open create modal (new session)
+  window.openPtCreate = function() {
+    document.getElementById('ptEditTitle').textContent = 'Ajouter un pointage';
+    document.getElementById('ptEditTechGroup').style.display = '';
+    document.getElementById('ptEditId').value    = '';
+    document.getElementById('ptEditDate').value  = new Date().toISOString().slice(0, 10);
+    document.getElementById('ptEditDebut').value = '';
+    document.getElementById('ptEditFin').value   = '';
+    document.getElementById('ptEditNotes').value = '';
+    document.getElementById('ptEditOverlay').classList.add('open');
+  };
+
   window.closePtEdit = function() {
     document.getElementById('ptEditOverlay').classList.remove('open');
   };
+
   window.savePtEdit = function() {
     const CSRF    = document.getElementById('csrfToken').value;
     const id      = document.getElementById('ptEditId').value;
@@ -465,7 +493,16 @@ $currentYear = (int)date('Y');
     const h_fin   = document.getElementById('ptEditFin').value;
     const notes   = document.getElementById('ptEditNotes').value;
     if (!date || !h_debut) { alert('La date et l\'heure de début sont requises.'); return; }
-    const body = new URLSearchParams({ csrf_token: CSRF, action: 'update', id, date, h_debut, h_fin, notes });
+
+    const params = { csrf_token: CSRF, date, h_debut, h_fin, notes };
+    if (id) {
+      params.action = 'update';
+      params.id = id;
+    } else {
+      params.action = 'create';
+      params.technician_id = document.getElementById('ptEditTech').value;
+    }
+    const body = new URLSearchParams(params);
     fetch('api/pointage_edit.php', { method: 'POST', body })
       .then(r => r.json())
       .then(d => { if (d.success) { location.reload(); } else { alert(d.error || 'Erreur'); } })
