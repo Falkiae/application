@@ -32,6 +32,20 @@ $todayStmt  = $db->prepare("
 $todayStmt->execute([$userId, $today]);
 $todaySessions = $todayStmt->fetchAll();
 
+// Dashboard target: admin can view any technician's dashboard
+$dashUserId = $userId;
+$dashUserName = '';
+$allTechs = [];
+if ($isAdm) {
+    $allTechs = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
+    $reqTech = (int)($_GET['tech'] ?? 0);
+    if ($reqTech) {
+        foreach ($allTechs as $t) {
+            if ($t['id'] === $reqTech) { $dashUserId = $reqTech; $dashUserName = $t['name']; break; }
+        }
+    }
+}
+
 // Personal month filter
 $selYear  = max(2020, min(2030, (int)($_GET['year']  ?? date('Y'))));
 $selMonth = max(1,    min(12,   (int)($_GET['month'] ?? date('n'))));
@@ -42,14 +56,14 @@ $myHoursStmt = $db->prepare("
            COUNT(*) as nb_sessions
     FROM pointages WHERE technician_id=? AND strftime('%Y-%m', debut)=?
 ");
-$myHoursStmt->execute([$userId, $myMonthStr]);
+$myHoursStmt->execute([$dashUserId, $myMonthStr]);
 $myHoursData = $myHoursStmt->fetch();
 
 $myPrestStmt = $db->prepare("
     SELECT COUNT(*) as nb, COALESCE(SUM(montant),0) as ca
     FROM services WHERE technician_id=? AND strftime('%Y-%m', date)=?
 ");
-$myPrestStmt->execute([$userId, $myMonthStr]);
+$myPrestStmt->execute([$dashUserId, $myMonthStr]);
 $myPresta = $myPrestStmt->fetch();
 
 $mySessionsStmt = $db->prepare("
@@ -66,7 +80,7 @@ $mySessionsStmt = $db->prepare("
     FROM pointages WHERE technician_id=? AND strftime('%Y-%m', debut)=?
     ORDER BY debut DESC
 ");
-$mySessionsStmt->execute([$userId, $myMonthStr]);
+$mySessionsStmt->execute([$dashUserId, $myMonthStr]);
 $mySessions = $mySessionsStmt->fetchAll();
 
 // Admin section
@@ -285,8 +299,16 @@ $currentYear = (int)date('Y');
 <!-- ===== DASHBOARD PERSONNEL ===== -->
 <div class="section-card">
   <div class="pt-dash-header">
-    <h2 class="card-title" style="margin:0">Mon tableau de bord</h2>
+    <h2 class="card-title" style="margin:0"><?= $dashUserName ? htmlspecialchars($dashUserName) : 'Mon tableau de bord' ?></h2>
     <div class="pt-month-filter">
+      <?php if ($isAdm && !empty($allTechs)): ?>
+      <select id="selTech" onchange="updatePersonalFilter()">
+        <option value="0" <?= $dashUserId === $userId ? 'selected' : '' ?>>Moi</option>
+        <?php foreach ($allTechs as $t): ?>
+        <option value="<?= $t['id'] ?>" <?= $dashUserId === $t['id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
       <select id="selMonth" onchange="updatePersonalFilter()">
         <?php for ($m = 1; $m <= 12; $m++): ?>
         <option value="<?= $m ?>" <?= $m === $selMonth ? 'selected' : '' ?>><?= $monthNames[$m] ?></option>
@@ -435,6 +457,12 @@ $currentYear = (int)date('Y');
     const url = new URL(window.location.href);
     url.searchParams.set('month', document.getElementById('selMonth').value);
     url.searchParams.set('year',  document.getElementById('selYear').value);
+    const techSel = document.getElementById('selTech');
+    if (techSel) {
+      const v = techSel.value;
+      if (v && v !== '0') url.searchParams.set('tech', v);
+      else url.searchParams.delete('tech');
+    }
     window.location.href = url.toString();
   };
 
