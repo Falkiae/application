@@ -1025,6 +1025,21 @@ tr:hover td { background: var(--gray-50); }
 .movement-amount { font-weight: 700; font-size: .9rem; white-space: nowrap; }
 .movement-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .movement-item-service { opacity: .85; }
+.movements-empty { font-size: .85rem; color: var(--gray-400); padding: 8px 0; }
+
+/* ── Cash month navigation ────────────────────────────── */
+.cash-month-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 4px; }
+.cash-month-arrow { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--gray-200); background: #fff; color: var(--dark); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, border-color .15s; }
+.cash-month-arrow:hover { background: var(--gray-50); border-color: var(--gray-300); }
+.cash-month-arrow svg { width: 18px; height: 18px; }
+.cash-month-label { font-size: 1.05rem; font-weight: 700; color: var(--dark); min-width: 150px; text-align: center; text-transform: capitalize; }
+
+/* ── Cash monthly statement ───────────────────────────── */
+.cash-statement { background: var(--gray-50); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; }
+.cash-statement-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: .85rem; color: var(--gray-600); border-bottom: 1px solid var(--gray-100); }
+.cash-statement-row span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cash-statement-open { font-weight: 600; color: var(--dark); }
+.cash-statement-close { padding: 9px 0 3px; margin-top: 3px; border-bottom: none; border-top: 1.5px solid var(--gray-200); font-weight: 700; font-size: .95rem; color: var(--dark); }
 
 /* ── Abonnements ──────────────────────────────────────── */
 .abonnements-page { display: flex; flex-direction: column; gap: 16px; }
@@ -1631,6 +1646,9 @@ select.form-input, .form-select {
   .summary-bar { flex-wrap: wrap; gap: 4px; }
   .invoice-item { flex-wrap: wrap; gap: 8px; }
   .cash-breakdown-item, .cash-breakdown-total { font-size: .8rem; }
+  .cash-statement-row { font-size: .8rem; }
+  .cash-statement-close { font-size: .9rem; }
+  .cash-month-label { font-size: 1rem; min-width: 120px; }
 }
 
 /* ========= Invoice feature ========= */

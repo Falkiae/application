@@ -3,6 +3,18 @@ $db = getDB();
 $techId = currentUserId();
 $isAdm = isAdmin();
 
+// Selected month (global to the page)
+$monthNames = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+$selYear  = max(2020, min(2030, (int)($_GET['cyear']  ?? date('Y'))));
+$selMonth = max(1,    min(12,   (int)($_GET['cmonth'] ?? date('n'))));
+$mStr   = sprintf('%04d-%02d', $selYear, $selMonth);
+$mStart = sprintf('%04d-%02d-01', $selYear, $selMonth);
+// Prev / next month for navigation
+$prevMonth = $selMonth == 1 ? 12 : $selMonth - 1;
+$prevYear  = $selMonth == 1 ? $selYear - 1 : $selYear;
+$nextMonth = $selMonth == 12 ? 1 : $selMonth + 1;
+$nextYear  = $selMonth == 12 ? $selYear + 1 : $selYear;
+
 // Get all active technicians (admin) or just self
 if ($isAdm) {
     $techs = $db->query("SELECT id, name, color FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
@@ -17,51 +29,91 @@ $cashSummary = [];
 foreach ($techs as $tech) {
     $tid = $tech['id'];
 
-    // Single query for all breakdown totals
+    // ── All-time real solde (cash actually on hand) ─────────────
+    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM cash_movements WHERE technician_id=?");
+    $stmt->execute([$tid]);
+    $mvtAllTime = (float)$stmt->fetchColumn();
+    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM services WHERE technician_id=? AND paiement='cash'");
+    $stmt->execute([$tid]);
+    $cashInAllTime = (float)$stmt->fetchColumn();
+    $soldeReel = $mvtAllTime + $cashInAllTime;
+
+    // ── Opening balance (running balance before selected month) ──
+    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM cash_movements WHERE technician_id=? AND date < ?");
+    $stmt->execute([$tid, $mStart]);
+    $stmt2 = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM services WHERE technician_id=? AND paiement='cash' AND date < ?");
+    $stmt2->execute([$tid, $mStart]);
+    $soldeDebut = (float)$stmt->fetchColumn() + (float)$stmt2->fetchColumn();
+
+    // ── Month flows from cash_movements ─────────────────────────
     $stmt = $db->prepare("
         SELECT
             COALESCE(SUM(CASE WHEN type='initial' THEN montant ELSE 0 END), 0) as initial,
             COALESCE(ABS(SUM(CASE WHEN type='depot_banque' THEN montant ELSE 0 END)), 0) as depot_banque,
             COALESCE(ABS(SUM(CASE WHEN type='achat_liquide' THEN montant ELSE 0 END)), 0) as achats,
-            COALESCE(SUM(montant), 0) as total_mvt
-        FROM cash_movements WHERE technician_id=?
+            COALESCE(SUM(CASE WHEN type='note' THEN montant ELSE 0 END), 0) as notes,
+            COALESCE(SUM(montant), 0) as net_mvt
+        FROM cash_movements WHERE technician_id=? AND strftime('%Y-%m', date)=?
     ");
-    $stmt->execute([$tid]);
-    $totals = $stmt->fetch();
+    $stmt->execute([$tid, $mStr]);
+    $flux = $stmt->fetch();
 
-    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM services WHERE technician_id=? AND paiement='cash'");
-    $stmt->execute([$tid]);
-    $cashIn = (float)$stmt->fetchColumn();
+    // ── Month cash-in from services ─────────────────────────────
+    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM services WHERE technician_id=? AND paiement='cash' AND strftime('%Y-%m', date)=?");
+    $stmt->execute([$tid, $mStr]);
+    $cashInMois = (float)$stmt->fetchColumn();
 
-    // Solde = total mouvements (initial - sorties) + recettes cash services
-    $solde = (float)$totals['total_mvt'] + $cashIn;
+    $soldeFin = $soldeDebut + (float)$flux['net_mvt'] + $cashInMois;
 
-    // Cash movements with id for edit/delete
+    // ── Merged movement list for the month ──────────────────────
     $stmt = $db->prepare("
         SELECT id, type, montant, notes, date FROM cash_movements
-        WHERE technician_id=? ORDER BY date DESC, id DESC LIMIT 30
+        WHERE technician_id=? AND strftime('%Y-%m', date)=?
     ");
-    $stmt->execute([$tid]);
-    $cashMvts = $stmt->fetchAll();
-
-    // Cash service entries (read-only in this list)
+    $stmt->execute([$tid, $mStr]);
+    $entries = [];
+    foreach ($stmt->fetchAll() as $m) {
+        $entries[] = [
+            'kind'    => 'mvt',
+            'id'      => $m['id'],
+            'type'    => $m['type'],
+            'montant' => (float)$m['montant'],
+            'notes'   => $m['notes'],
+            'date'    => $m['date'],
+        ];
+    }
     $stmt = $db->prepare("
-        SELECT s.id as sid, s.montant, COALESCE(s.notes,'Prestation cash') as notes, s.date
-        FROM services s WHERE s.technician_id=? AND s.paiement='cash'
-        ORDER BY s.date DESC, s.id DESC LIMIT 20
+        SELECT id as sid, montant, COALESCE(notes,'Prestation cash') as notes, date
+        FROM services WHERE technician_id=? AND paiement='cash' AND strftime('%Y-%m', date)=?
     ");
-    $stmt->execute([$tid]);
-    $cashServices = $stmt->fetchAll();
+    $stmt->execute([$tid, $mStr]);
+    foreach ($stmt->fetchAll() as $s) {
+        $entries[] = [
+            'kind'    => 'svc',
+            'id'      => $s['sid'],
+            'type'    => 'service',
+            'montant' => (float)$s['montant'],
+            'notes'   => $s['notes'],
+            'date'    => $s['date'],
+        ];
+    }
+    // Sort by date DESC, then id DESC (most recent first)
+    usort($entries, function ($a, $b) {
+        if ($a['date'] === $b['date']) return $b['id'] <=> $a['id'];
+        return strcmp($b['date'], $a['date']);
+    });
 
     $cashSummary[$tid] = [
-        'tech'        => $tech,
-        'initial'     => (float)$totals['initial'],
-        'cash_in'     => $cashIn,
-        'depot_banque'=> (float)$totals['depot_banque'],
-        'achats'      => (float)$totals['achats'],
-        'solde'       => $solde,
-        'cash_mvts'   => $cashMvts,
-        'cash_svcs'   => $cashServices,
+        'tech'         => $tech,
+        'solde_reel'   => $soldeReel,
+        'solde_debut'  => $soldeDebut,
+        'solde_fin'    => $soldeFin,
+        'initial'      => (float)$flux['initial'],
+        'cash_in'      => $cashInMois,
+        'notes'        => (float)$flux['notes'],
+        'depot_banque' => (float)$flux['depot_banque'],
+        'achats'       => (float)$flux['achats'],
+        'entries'      => $entries,
     ];
 }
 
@@ -72,11 +124,22 @@ $mvtTypeLabels = [
     'note'          => 'Note / ajustement',
 ];
 
-// Global total (all technicians)
-$globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
+// Global total (all technicians) — real cash on hand, all-time
+$globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_reel'));
 ?>
 
 <div class="cash-page">
+    <!-- Month navigation (applies to all cards) -->
+    <div class="cash-month-nav">
+        <button class="cash-month-arrow" onclick="cashGoMonth(<?= $prevYear ?>, <?= $prevMonth ?>)" aria-label="Mois précédent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="cash-month-label"><?= $monthNames[$selMonth] ?> <?= $selYear ?></span>
+        <button class="cash-month-arrow" onclick="cashGoMonth(<?= $nextYear ?>, <?= $nextMonth ?>)" aria-label="Mois suivant">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+    </div>
+
     <?php if ($isAdm): ?>
     <div class="section-card cash-global-card">
         <div class="cash-global-inner">
@@ -101,8 +164,8 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
             </div>
             <div class="cash-tech-info">
                 <h2 class="cash-tech-name"><?= htmlspecialchars($data['tech']['name']) ?></h2>
-                <span class="cash-solde-badge <?= $data['solde'] < 0 ? 'solde-negative' : 'solde-positive' ?>">
-                    <?= number_format($data['solde'], 2, ',', '.') ?> €
+                <span class="cash-solde-badge <?= $data['solde_reel'] < 0 ? 'solde-negative' : 'solde-positive' ?>" title="Solde réel actuel (toutes périodes)">
+                    <?= number_format($data['solde_reel'], 2, ',', '.') ?> €
                 </span>
             </div>
             <?php if ($isAdm || $tid == $techId): ?>
@@ -110,39 +173,52 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
             <?php endif; ?>
         </div>
 
-        <div class="cash-breakdown">
-            <div class="cash-breakdown-item">
-                <span>Montant initial</span>
-                <span class="amount-green">+ <?= number_format($data['initial'], 2, ',', '.') ?> €</span>
+        <div class="cash-statement">
+            <div class="cash-statement-row cash-statement-open">
+                <span>Solde début de mois</span>
+                <span class="<?= $data['solde_debut'] < 0 ? 'amount-red' : '' ?>"><?= number_format($data['solde_debut'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="cash-breakdown-item">
-                <span>Prestations cash</span>
+            <div class="cash-statement-row">
+                <span>+ Prestations cash</span>
                 <span class="amount-green">+ <?= number_format($data['cash_in'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="cash-breakdown-item">
-                <span>Versements banque</span>
+            <?php if ($data['initial'] != 0): ?>
+            <div class="cash-statement-row">
+                <span>+ Montant initial</span>
+                <span class="amount-green">+ <?= number_format($data['initial'], 2, ',', '.') ?> €</span>
+            </div>
+            <?php endif; ?>
+            <?php if ($data['notes'] != 0): ?>
+            <div class="cash-statement-row">
+                <span><?= $data['notes'] < 0 ? '−' : '+' ?> Notes / ajustements</span>
+                <span class="<?= $data['notes'] < 0 ? 'amount-red' : 'amount-green' ?>"><?= $data['notes'] < 0 ? '- ' : '+ ' ?><?= number_format(abs($data['notes']), 2, ',', '.') ?> €</span>
+            </div>
+            <?php endif; ?>
+            <div class="cash-statement-row">
+                <span>− Versements banque</span>
                 <span class="amount-red">- <?= number_format($data['depot_banque'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="cash-breakdown-item">
-                <span>Achats en liquide</span>
+            <div class="cash-statement-row">
+                <span>− Achats en liquide</span>
                 <span class="amount-red">- <?= number_format($data['achats'], 2, ',', '.') ?> €</span>
             </div>
-            <div class="cash-breakdown-total">
-                <span>Solde actuel</span>
-                <span class="<?= $data['solde'] < 0 ? 'amount-red' : 'amount-green' ?>"><?= number_format($data['solde'], 2, ',', '.') ?> €</span>
+            <div class="cash-statement-row cash-statement-close">
+                <span>= Solde fin de mois</span>
+                <span class="<?= $data['solde_fin'] < 0 ? 'amount-red' : 'amount-green' ?>"><?= number_format($data['solde_fin'], 2, ',', '.') ?> €</span>
             </div>
         </div>
 
-        <?php $hasMvts = !empty($data['cash_mvts']) || !empty($data['cash_svcs']); ?>
-        <?php if ($hasMvts): ?>
         <div class="movements-section">
-            <h4 class="movements-title">Mouvements</h4>
+            <h4 class="movements-title">Mouvements de <?= $monthNames[$selMonth] ?></h4>
+            <?php if (empty($data['entries'])): ?>
+            <p class="movements-empty">Aucun mouvement en <?= $monthNames[$selMonth] ?> <?= $selYear ?>.</p>
+            <?php else: ?>
             <div class="movements-list">
-
-                <?php foreach ($data['cash_mvts'] as $m):
-                    $isOut = $m['montant'] < 0;
+                <?php foreach ($data['entries'] as $e):
+                    $isOut = $e['montant'] < 0;
+                    $isService = $e['kind'] === 'svc';
                 ?>
-                <div class="movement-item" id="mvt-<?= $m['id'] ?>">
+                <div class="movement-item<?= $isService ? ' movement-item-service' : '' ?>"<?= $isService ? '' : ' id="mvt-' . $e['id'] . '"' ?>>
                     <div class="movement-icon <?= $isOut ? 'movement-out' : 'movement-in' ?>">
                         <?php if ($isOut): ?>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
@@ -151,56 +227,38 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
                         <?php endif; ?>
                     </div>
                     <div class="movement-info">
-                        <span class="movement-type"><?= $mvtTypeLabels[$m['type']] ?? $m['type'] ?></span>
-                        <?php if ($m['notes']): ?>
-                        <span class="movement-note"><?= htmlspecialchars($m['notes']) ?></span>
+                        <span class="movement-type"><?= $isService ? 'Prestation cash' : ($mvtTypeLabels[$e['type']] ?? $e['type']) ?></span>
+                        <?php if ($e['notes'] && !($isService && $e['notes'] === 'Prestation cash')): ?>
+                        <span class="movement-note"><?= htmlspecialchars(mb_substr($e['notes'], 0, 40)) ?></span>
                         <?php endif; ?>
-                        <span class="movement-date"><?= date('d/m/Y', strtotime($m['date'])) ?></span>
+                        <span class="movement-date"><?= date('d/m/Y', strtotime($e['date'])) ?></span>
                     </div>
                     <div class="movement-amount <?= $isOut ? 'amount-red' : 'amount-green' ?>">
-                        <?= $isOut ? '-' : '+' ?><?= number_format(abs($m['montant']), 2, ',', '.') ?> €
+                        <?= $isOut ? '-' : '+' ?><?= number_format(abs($e['montant']), 2, ',', '.') ?> €
                     </div>
-                    <?php if ($isAdm || $tid == $techId): ?>
+                    <?php if ($isService): ?>
+                    <div class="movement-actions">
+                        <a href="index.php?page=prestation_edit&id=<?= $e['id'] ?>" class="btn-icon btn-edit" title="Modifier la prestation">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                    </div>
+                    <?php elseif ($isAdm || $tid == $techId): ?>
                     <div class="movement-actions">
                         <button class="btn-icon btn-edit" title="Modifier"
-                            onclick="editMvt(<?= $m['id'] ?>, '<?= $m['type'] ?>', <?= abs($m['montant']) ?>, '<?= $m['date'] ?>', <?= json_encode($m['notes'] ?? '') ?>)">
+                            onclick="editMvt(<?= $e['id'] ?>, '<?= $e['type'] ?>', <?= abs($e['montant']) ?>, '<?= $e['date'] ?>', <?= json_encode($e['notes'] ?? '') ?>)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                         <button class="btn-icon btn-delete" title="Supprimer"
-                            onclick="deleteMvt(<?= $m['id'] ?>)">
+                            onclick="deleteMvt(<?= $e['id'] ?>)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                         </button>
                     </div>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
-
-                <?php foreach ($data['cash_svcs'] as $s): ?>
-                <div class="movement-item movement-item-service">
-                    <div class="movement-icon movement-in">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                    </div>
-                    <div class="movement-info">
-                        <span class="movement-type">Prestation cash</span>
-                        <?php if ($s['notes']): ?>
-                        <span class="movement-note"><?= htmlspecialchars(mb_substr($s['notes'], 0, 40)) ?></span>
-                        <?php endif; ?>
-                        <span class="movement-date"><?= date('d/m/Y', strtotime($s['date'])) ?></span>
-                    </div>
-                    <div class="movement-amount amount-green">
-                        +<?= number_format($s['montant'], 2, ',', '.') ?> €
-                    </div>
-                    <div class="movement-actions">
-                        <a href="index.php?page=prestation_edit&id=<?= $s['sid'] ?>" class="btn-icon btn-edit" title="Modifier la prestation">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-
             </div>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
     </div>
     <?php endforeach; ?>
 </div>
@@ -305,6 +363,14 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde'));
 </div>
 
 <script>
+// ── Month navigation ──────────────────────────────────────
+function cashGoMonth(year, month) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('cyear', year);
+    url.searchParams.set('cmonth', month);
+    window.location.href = url.toString();
+}
+
 // ── Add movement ──────────────────────────────────────────
 function showCashForm(techId) {
     document.getElementById('cashTechId').value = techId;
