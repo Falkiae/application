@@ -29,15 +29,6 @@ $cashSummary = [];
 foreach ($techs as $tech) {
     $tid = $tech['id'];
 
-    // ── All-time real solde (cash actually on hand) ─────────────
-    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM cash_movements WHERE technician_id=?");
-    $stmt->execute([$tid]);
-    $mvtAllTime = (float)$stmt->fetchColumn();
-    $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM services WHERE technician_id=? AND paiement='cash'");
-    $stmt->execute([$tid]);
-    $cashInAllTime = (float)$stmt->fetchColumn();
-    $soldeReel = $mvtAllTime + $cashInAllTime;
-
     // ── Opening balance (running balance before selected month) ──
     $stmt = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM cash_movements WHERE technician_id=? AND date < ?");
     $stmt->execute([$tid, $mStart]);
@@ -105,7 +96,6 @@ foreach ($techs as $tech) {
 
     $cashSummary[$tid] = [
         'tech'         => $tech,
-        'solde_reel'   => $soldeReel,
         'solde_debut'  => $soldeDebut,
         'solde_fin'    => $soldeFin,
         'initial'      => (float)$flux['initial'],
@@ -124,8 +114,8 @@ $mvtTypeLabels = [
     'note'          => 'Note / ajustement',
 ];
 
-// Global total (all technicians) — real cash on hand, all-time
-$globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_reel'));
+// Global total (all technicians) — closing balance of the selected month
+$globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_fin'));
 ?>
 
 <div class="cash-page">
@@ -147,7 +137,7 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_reel'))
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>
             </div>
             <div class="cash-global-info">
-                <span class="cash-global-label">Total liquidités (tous techniciens)</span>
+                <span class="cash-global-label">Total liquidités à fin <?= $monthNames[$selMonth] ?> <?= $selYear ?> (tous techniciens)</span>
                 <span class="cash-global-amount <?= $globalTotal < 0 ? 'amount-red' : 'amount-green' ?>">
                     <?= number_format($globalTotal, 2, ',', '.') ?> €
                 </span>
@@ -164,8 +154,8 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_reel'))
             </div>
             <div class="cash-tech-info">
                 <h2 class="cash-tech-name"><?= htmlspecialchars($data['tech']['name']) ?></h2>
-                <span class="cash-solde-badge <?= $data['solde_reel'] < 0 ? 'solde-negative' : 'solde-positive' ?>" title="Solde réel actuel (toutes périodes)">
-                    <?= number_format($data['solde_reel'], 2, ',', '.') ?> €
+                <span class="cash-solde-badge <?= $data['solde_fin'] < 0 ? 'solde-negative' : 'solde-positive' ?>" title="Solde à fin <?= $monthNames[$selMonth] ?> <?= $selYear ?>">
+                    <?= number_format($data['solde_fin'], 2, ',', '.') ?> €
                 </span>
             </div>
             <?php if ($isAdm || $tid == $techId): ?>
