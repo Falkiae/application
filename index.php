@@ -11,13 +11,13 @@ $page = $_GET['page'] ?? 'dashboard';
 
 // Whitelist of allowed pages
 $publicPages = ['login'];
-$adminPages = ['admin/index', 'admin/techniciens', 'admin/types', 'admin/historique'];
+$adminPages = ['admin/index', 'admin/techniciens', 'admin/types', 'admin/historique', 'notes'];
 $allPages = [
     'dashboard', 'login',
     'prestation_new', 'prestation_edit', 'prestations',
     'cash', 'export',
     'abonnements', 'abonnement_detail',
-    'stats', 'pointage',
+    'stats', 'pointage', 'notes',
     'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique'
 ];
 
@@ -69,6 +69,7 @@ $pageTitle = match($page) {
     'abonnement_detail'  => 'Détail abonnement',
     'stats'              => 'Statistiques',
     'pointage'           => 'Pointage',
+    'notes'              => 'Notes',
     'admin/index'        => 'Administration',
     'admin/techniciens'  => 'Techniciens',
     'admin/types'        => 'Types de nettoyage',
@@ -132,6 +133,10 @@ $pageTitle = match($page) {
             </a>
             <?php if (isAdmin()): ?>
             <div class="nav-separator"></div>
+            <a href="index.php?page=notes" class="nav-item <?= $currentPage === 'notes' ? 'active' : '' ?>">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Notes</span>
+            </a>
             <a href="index.php?page=admin/index" class="nav-item <?= str_starts_with($currentPage, 'admin') ? 'active' : '' ?>">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
                 <span>Administration</span>

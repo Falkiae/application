@@ -43,5 +43,10 @@ $rows = $stmt->fetchAll(PDO::FETCH_NUM);
 $headers = ['Technicien', 'Date', 'Heure début', 'Heure fin', 'Durée (h:mm)', 'Notes'];
 
 $xlsx = new XlsxWriter();
+// Admin monthly note (settings key note_YYYY-MM) — first sheet if present
+$note = getSetting("note_$monthStr");
+if ($note !== '') {
+    $xlsx->addSheet('Note du mois', ['Note'], [[$note]]);
+}
 $xlsx->addSheet("Pointages $monthLabel", $headers, $rows);
 $xlsx->download("keepnew_pointages_$monthLabel.xlsx");

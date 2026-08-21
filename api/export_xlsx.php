@@ -107,6 +107,11 @@ $headers3 = ['Date', 'Technicien', 'Type de mouvement', 'Montant (€)', 'Notes'
 
 // Generate XLSX
 $xlsx = new XlsxWriter();
+// Admin monthly note (settings key note_YYYY-MM) — first sheet if present
+$note = getSetting("note_$month");
+if ($note !== '') {
+    $xlsx->addSheet('Note du mois', ['Note'], [[$note]]);
+}
 $xlsx->addSheet('Toutes les prestations', $headers1, $allServices);
 $xlsx->addSheet('Avec facture', $headers2, $invoiceServices);
 $xlsx->addSheet('Mouvements cash', $headers3, $allCash);

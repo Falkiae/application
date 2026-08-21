@@ -1041,6 +1041,15 @@ tr:hover td { background: var(--gray-50); }
 .cash-statement-open { font-weight: 600; color: var(--dark); }
 .cash-statement-close { padding: 9px 0 3px; margin-top: 3px; border-bottom: none; border-top: 1.5px solid var(--gray-200); font-weight: 700; font-size: .95rem; color: var(--dark); }
 
+/* ── Notes mensuelles (admin) ─────────────────────────── */
+.notes-page { display: flex; flex-direction: column; gap: 4px; }
+.notes-help { font-size: .8rem; color: var(--gray-400); margin: -4px 0 12px; }
+.notes-textarea { width: 100%; resize: vertical; min-height: 220px; font-family: inherit; font-size: .95rem; line-height: 1.5; }
+.notes-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.notes-status { font-size: .85rem; font-weight: 600; }
+.notes-status-ok { color: #16a34a; }
+.notes-status-err { color: #dc2626; }
+
 /* ── Abonnements ──────────────────────────────────────── */
 .abonnements-page { display: flex; flex-direction: column; gap: 16px; }
 .abonnements-toolbar { display: flex; justify-content: flex-end; }

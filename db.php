@@ -18,6 +18,25 @@ function getDB(): PDO {
     return $pdo;
 }
 
+/**
+ * Read a value from the key/value `settings` table.
+ * `key` is a reserved SQLite keyword, hence the quotes.
+ */
+function getSetting(string $key, string $default = ''): string {
+    $stmt = getDB()->prepare('SELECT value FROM settings WHERE "key" = ?');
+    $stmt->execute([$key]);
+    $val = $stmt->fetchColumn();
+    return $val === false ? $default : (string)$val;
+}
+
+/**
+ * Insert or overwrite a value in the `settings` table.
+ */
+function setSetting(string $key, string $value): void {
+    getDB()->prepare('INSERT OR REPLACE INTO settings ("key", value) VALUES (?, ?)')
+           ->execute([$key, $value]);
+}
+
 function initSchema(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS technicians (
