@@ -2008,6 +2008,28 @@ select.form-input, .form-select {
 .pt-sub-actions { display: flex; gap: 4px; align-items: center; justify-content: flex-end; white-space: nowrap; }
 .tech-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
+/* Alerte session > 12h */
+.pt-alert-long { display: flex; align-items: center; gap: 8px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 8px 12px; font-size: .82rem; font-weight: 500; margin-bottom: 12px; }
+.pt-alert-long svg { flex-shrink: 0; }
+
+/* Table journalière (résumé net avec règle 30 min) */
+.pt-daily-table-wrap { margin-top: 18px; }
+.pt-subhead { font-size: .95rem; font-weight: 600; color: var(--dark); margin: 0 0 8px; }
+.pt-subhead-hint { font-size: .75rem; color: var(--gray-400); font-weight: 400; margin-left: 4px; }
+.pt-subhead-small { font-size: .78rem; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 6px; }
+.pt-daily-table .pt-net { font-weight: 700; color: #16a34a; }
+.pt-daily-table tfoot td { padding-top: 10px; border-top: 1.5px solid var(--gray-200); }
+
+/* Historique pointages — diff */
+.pt-hist-author { color: var(--gray-500); font-size: .82rem; margin-left: 4px; }
+.pt-hist-diff { font-size: .82rem; color: var(--gray-600); margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+.pt-hist-diff-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pt-hist-field { font-weight: 600; color: var(--dark); min-width: 90px; }
+.pt-hist-old { color: #b91c1c; text-decoration: line-through; }
+.pt-hist-new { color: #16a34a; font-weight: 500; }
+.pt-hist-arrow { color: var(--gray-400); }
+.badge-info { background: #dbeafe; color: #1e40af; }
+
 /* Clock widget */
 .pt-clock-card { padding: 28px 24px 20px; }
 .pt-clock-inner {

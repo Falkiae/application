@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../lib/pointage.php';
 requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonResponse(['error' => 'Method not allowed'], 405);
@@ -11,6 +12,9 @@ $action = trim($_POST['action'] ?? '');
 $techId = currentUserId();
 
 if (!in_array($action, ['start', 'stop'])) jsonResponse(['error' => 'Action invalide'], 400);
+
+// Sweep any forgotten sessions from previous days for this tech before doing anything.
+pointageAutoCloseStale($techId);
 
 if ($action === 'start') {
     $open = $db->prepare("SELECT id FROM pointages WHERE technician_id=? AND fin IS NULL");

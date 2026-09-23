@@ -156,6 +156,17 @@ function initSchema(PDO $pdo): void {
             created_at TEXT DEFAULT (datetime('now','localtime')),
             FOREIGN KEY (technician_id) REFERENCES technicians(id)
         );
+
+        CREATE TABLE IF NOT EXISTS pointage_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pointage_id INTEGER,
+            technician_id INTEGER NOT NULL,
+            admin_id INTEGER,
+            action TEXT NOT NULL,
+            old_values TEXT,
+            new_values TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        );
     ");
 
     // Seed default cleaning types

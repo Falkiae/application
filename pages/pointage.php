@@ -1,13 +1,26 @@
 <?php
+require_once __DIR__ . '/../lib/pointage.php';
+
 $db     = getDB();
 $userId = currentUserId();
 $isAdm  = isAdmin();
+
+// Auto-close any forgotten sessions BEFORE loading anything.
+// Admin sees everyone's data → sweep everyone; a technician → only their own.
+if ($isAdm) pointageAutoCloseStale();
+else        pointageAutoCloseStale($userId);
 
 $ptFmt = function(float $h): string {
     if ($h <= 0) return '0h 0m';
     $hrs  = (int)$h;
     $mins = (int)(round(($h - $hrs) * 60));
     return "{$hrs}h {$mins}m";
+};
+
+// Same but takes seconds — used with pointageAggregateSessions output.
+$ptFmtSec = function(int $sec): string {
+    if ($sec <= 0) return '0h 0m';
+    return intdiv($sec, 3600) . 'h ' . intdiv($sec % 3600, 60) . 'm';
 };
 
 // Open session for current user
@@ -51,13 +64,17 @@ $selYear  = max(2020, min(2030, (int)($_GET['year']  ?? date('Y'))));
 $selMonth = max(1,    min(12,   (int)($_GET['month'] ?? date('n'))));
 $myMonthStr = sprintf('%04d-%02d', $selYear, $selMonth);
 
-$myHoursStmt = $db->prepare("
-    SELECT COALESCE(SUM(CASE WHEN fin IS NOT NULL THEN (julianday(fin)-julianday(debut))*24 ELSE 0 END),0) as heures,
-           COUNT(*) as nb_sessions
-    FROM pointages WHERE technician_id=? AND strftime('%Y-%m', debut)=?
+// Load raw sessions of the month for aggregation (net hours with the 30-min break rule).
+$mySessRawStmt = $db->prepare("
+    SELECT debut, fin
+    FROM pointages
+    WHERE technician_id=? AND strftime('%Y-%m', debut)=?
+    ORDER BY debut ASC
 ");
-$myHoursStmt->execute([$dashUserId, $myMonthStr]);
-$myHoursData = $myHoursStmt->fetch();
+$mySessRawStmt->execute([$dashUserId, $myMonthStr]);
+$myAgg = pointageAggregateSessions($mySessRawStmt->fetchAll());
+// Sessions count for KPI = closed sessions across all days
+$myNbSessions = array_sum(array_map(fn($d) => $d['sessions'], $myAgg['days']));
 
 $myPrestStmt = $db->prepare("
     SELECT COUNT(*) as nb, COALESCE(SUM(montant),0) as ca
@@ -96,20 +113,12 @@ if ($isAdm) {
     $adminMonth    = max(1,    min(12,   (int)($_GET['amonth'] ?? date('n'))));
     $adminMonthStr = sprintf('%04d-%02d', $adminYear, $adminMonth);
 
-    $techStatsStmt = $db->prepare("
+    // Prestations per tech for this month (same as before)
+    $techPrestStmt = $db->prepare("
         SELECT t.id, t.name, t.color,
-               COALESCE(ph.total_hours, 0) as heures,
-               COALESCE(ph.nb_sessions, 0) as nb_sessions,
                COALESCE(sh.nb_presta, 0) as nb_presta,
                COALESCE(sh.ca, 0) as ca
         FROM technicians t
-        LEFT JOIN (
-            SELECT technician_id,
-                   SUM(CASE WHEN fin IS NOT NULL THEN (julianday(fin)-julianday(debut))*24 ELSE 0 END) as total_hours,
-                   COUNT(*) as nb_sessions
-            FROM pointages WHERE strftime('%Y-%m', debut)=?
-            GROUP BY technician_id
-        ) ph ON ph.technician_id = t.id
         LEFT JOIN (
             SELECT technician_id, COUNT(*) as nb_presta, COALESCE(SUM(montant),0) as ca
             FROM services WHERE strftime('%Y-%m', date)=?
@@ -118,9 +127,27 @@ if ($isAdm) {
         WHERE t.active=1
         ORDER BY t.name ASC
     ");
-    $techStatsStmt->execute([$adminMonthStr, $adminMonthStr]);
-    $techStats = $techStatsStmt->fetchAll();
+    $techPrestStmt->execute([$adminMonthStr]);
+    $techStats = $techPrestStmt->fetchAll();
 
+    // Aggregate net hours per tech using the 30-min break rule.
+    // Keep per-tech day-by-day breakdown for the detail rows.
+    $techDailyAgg = [];      // [tech_id => aggregate result]
+    foreach ($techStats as &$ts) {
+        $rawStmt = $db->prepare("
+            SELECT debut, fin FROM pointages
+            WHERE technician_id=? AND strftime('%Y-%m', debut)=?
+            ORDER BY debut ASC
+        ");
+        $rawStmt->execute([$ts['id'], $adminMonthStr]);
+        $agg = pointageAggregateSessions($rawStmt->fetchAll());
+        $techDailyAgg[$ts['id']] = $agg;
+        $ts['heures_net_sec'] = $agg['total_net'];
+        $ts['nb_sessions']    = array_sum(array_map(fn($d) => $d['sessions'], $agg['days']));
+    }
+    unset($ts);
+
+    // Session list per tech (for the drill-down sub-table — kept intact, raw view).
     foreach ($techStats as $ts) {
         $sessStmt = $db->prepare("
             SELECT id,
@@ -187,7 +214,7 @@ $currentYear = (int)date('Y');
       <thead>
         <tr>
           <th>Technicien</th>
-          <th class="th-num">Heures pointées</th>
+          <th class="th-num" title="Heures nettes (pause de 30 min minimum déduite par jour)">Heures nettes</th>
           <th class="th-num">Prestations</th>
           <th class="th-num">CA généré</th>
           <th class="th-num">CA / heure</th>
@@ -196,14 +223,15 @@ $currentYear = (int)date('Y');
       </thead>
       <tbody>
         <?php foreach ($techStats as $ts):
-          $ratio = $ts['heures'] > 0 ? ($ts['ca'] / $ts['heures']) : 0;
+          $heuresH = $ts['heures_net_sec'] / 3600;
+          $ratio = $heuresH > 0 ? ($ts['ca'] / $heuresH) : 0;
         ?>
         <tr class="pt-admin-row" onclick="toggleTechDetail(<?= $ts['id'] ?>, this)">
           <td>
             <span class="tech-dot" style="background:<?= htmlspecialchars($ts['color']) ?>"></span>
             <?= htmlspecialchars($ts['name']) ?>
           </td>
-          <td class="td-num"><?= $ptFmt((float)$ts['heures']) ?></td>
+          <td class="td-num"><?= $ptFmtSec((int)$ts['heures_net_sec']) ?></td>
           <td class="td-num"><?= (int)$ts['nb_presta'] ?></td>
           <td class="td-num"><?= number_format((float)$ts['ca'], 2, ',', ' ') ?> €</td>
           <td class="td-num"><?= $ratio > 0 ? number_format($ratio, 2, ',', ' ') . ' €/h' : '—' ?></td>
@@ -213,9 +241,29 @@ $currentYear = (int)date('Y');
         </tr>
         <tr class="pt-detail-row" id="detail-<?= $ts['id'] ?>" style="display:none;">
           <td colspan="6" class="pt-detail-cell">
+            <?php $agg = $techDailyAgg[$ts['id']] ?? ['days'=>[], 'total_net'=>0]; ?>
+            <?php if (!empty($agg['days'])): ?>
+            <table class="pt-sub-table pt-daily-table">
+              <thead><tr><th>Jour</th><th>Sessions</th><th>Brut</th><th>Pause</th><th>Déduction</th><th>Net</th></tr></thead>
+              <tbody>
+                <?php foreach ($agg['days'] as $day => $r): ?>
+                <tr>
+                  <td><?= date('d/m', strtotime($day)) ?></td>
+                  <td><?= (int)$r['sessions'] ?></td>
+                  <td><?= pointageFmtHM($r['brut']) ?></td>
+                  <td><?= pointageFmtHM($r['pause_reelle']) ?></td>
+                  <td><?= pointageFmtHM($r['deduction']) ?></td>
+                  <td class="pt-net"><?= pointageFmtHM($r['net']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+            <?php endif; ?>
+
             <?php if (empty($techSessions[$ts['id']])): ?>
             <p style="color:var(--gray-400);font-size:.8rem;padding:6px 0;">Aucune session ce mois-ci.</p>
             <?php else: ?>
+            <p class="pt-subhead-small">Sessions brutes du mois</p>
             <table class="pt-sub-table">
               <thead><tr><th>Date</th><th>Début</th><th>Fin</th><th>Durée</th><th></th></tr></thead>
               <tbody>
@@ -258,11 +306,20 @@ $currentYear = (int)date('Y');
 <!-- ===== WIDGET POINTAGE ===== -->
 <div class="section-card pt-clock-card">
   <div class="pt-clock-inner">
-    <?php if ($openSession): ?>
+    <?php if ($openSession):
+      $openElapsed = max(0, time() - strtotime($openSession['debut']));
+      $isLong = $openElapsed > 12 * 3600;
+    ?>
+    <?php if ($isLong): ?>
+    <div class="pt-alert-long">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Session ouverte depuis <?= floor($openElapsed / 3600) ?>h — n'oublie pas de terminer ta journée.
+    </div>
+    <?php endif; ?>
     <div class="pt-status-badge pt-active">
       <span class="pt-dot"></span> En travail
     </div>
-    <div class="pt-timer" id="liveTimer" data-elapsed="<?= max(0, time() - strtotime($openSession['debut'])) ?>">00:00:00</div>
+    <div class="pt-timer" id="liveTimer" data-elapsed="<?= $openElapsed ?>">00:00:00</div>
     <p class="pt-since">Depuis <?= date('H:i', strtotime($openSession['debut'])) ?></p>
     <button class="btn btn-stop-pt" id="btnStop" onclick="stopSession()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -324,8 +381,8 @@ $currentYear = (int)date('Y');
 
   <div class="pt-kpis">
     <div class="pt-kpi">
-      <div class="pt-kpi-val"><?= $ptFmt((float)$myHoursData['heures']) ?></div>
-      <div class="pt-kpi-lbl">Heures pointées</div>
+      <div class="pt-kpi-val"><?= $ptFmtSec((int)$myAgg['total_net']) ?></div>
+      <div class="pt-kpi-lbl">Heures nettes</div>
     </div>
     <div class="pt-kpi">
       <div class="pt-kpi-val"><?= (int)$myPresta['nb'] ?></div>
@@ -336,6 +393,42 @@ $currentYear = (int)date('Y');
       <div class="pt-kpi-lbl">CA généré</div>
     </div>
   </div>
+
+  <?php if (!empty($myAgg['days'])): ?>
+  <div class="pt-daily-table-wrap">
+    <h3 class="pt-subhead">Résumé journalier <span class="pt-subhead-hint">(pause 30 min min. déduite par jour)</span></h3>
+    <table class="stats-table pt-daily-table">
+      <thead>
+        <tr>
+          <th>Jour</th>
+          <th class="th-num">Sessions</th>
+          <th class="th-num">Brut</th>
+          <th class="th-num">Pause réelle</th>
+          <th class="th-num">Déduction</th>
+          <th class="th-num">Net</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($myAgg['days'] as $day => $r): ?>
+        <tr>
+          <td><?= date('d/m', strtotime($day)) ?></td>
+          <td class="td-num"><?= (int)$r['sessions'] ?></td>
+          <td class="td-num"><?= pointageFmtHM($r['brut']) ?></td>
+          <td class="td-num"><?= pointageFmtHM($r['pause_reelle']) ?></td>
+          <td class="td-num"><?= pointageFmtHM($r['deduction']) ?></td>
+          <td class="td-num pt-net"><?= pointageFmtHM($r['net']) ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" style="text-align:right;font-weight:600;">Total net du mois</td>
+          <td class="td-num pt-net" style="font-weight:700"><?= pointageFmtHM($myAgg['total_net']) ?></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <?php endif; ?>
 
   <?php if (!empty($mySessions)): ?>
   <div class="stats-table-wrap" style="margin-top:16px;">

@@ -96,6 +96,22 @@ function addServiceHistory(int $serviceId, int $techId, string $action, ?array $
         ->execute([$serviceId, $techId, $action, $changedFields, $oldValues ? json_encode($oldValues) : null, $newValues ? json_encode($newValues) : null]);
 }
 
+/**
+ * Log an admin (or system) action on a pointage. adminId=NULL means system-driven (e.g. auto-close).
+ */
+function addPointageHistory(?int $pointageId, int $techId, ?int $adminId, string $action,
+                            ?array $oldValues = null, ?array $newValues = null): void {
+    getDB()->prepare("INSERT INTO pointage_history (pointage_id, technician_id, admin_id, action, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)")
+        ->execute([
+            $pointageId,
+            $techId,
+            $adminId,
+            $action,
+            $oldValues ? json_encode($oldValues, JSON_UNESCAPED_UNICODE) : null,
+            $newValues ? json_encode($newValues, JSON_UNESCAPED_UNICODE) : null,
+        ]);
+}
+
 function addNotification(int $fromTechId, string $action, ?int $serviceId, string $message): void {
     $db = getDB();
     $db->prepare("INSERT INTO notifications (from_technician_id, action, service_id, message, read_by) VALUES (?, ?, ?, ?, '[]')")

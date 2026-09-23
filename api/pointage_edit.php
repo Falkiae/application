@@ -6,8 +6,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonResponse(['error' => 'Method not 
 $csrf = $_POST['csrf_token'] ?? '';
 if (!verifyCsrfToken($csrf)) jsonResponse(['error' => 'Token invalide'], 403);
 
-$db     = getDB();
-$action = trim($_POST['action'] ?? '');
+$db      = getDB();
+$adminId = currentUserId();
+$action  = trim($_POST['action'] ?? '');
 
 if (!in_array($action, ['create', 'update', 'delete'])) jsonResponse(['error' => 'Action invalide'], 400);
 
@@ -32,18 +33,33 @@ if ($action === 'create') {
 
     $db->prepare("INSERT INTO pointages (technician_id, date, debut, fin, notes) VALUES (?, ?, ?, ?, ?)")
        ->execute([$techId, $date, $debut, $fin, $notes]);
+    $newId = (int)$db->lastInsertId();
+
+    addPointageHistory($newId, $techId, $adminId, 'create',
+        null,
+        ['technician_id' => $techId, 'date' => $date, 'debut' => $debut, 'fin' => $fin, 'notes' => $notes]);
+
     jsonResponse(['success' => true]);
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if (!$id) jsonResponse(['error' => 'ID manquant'], 400);
 
-$check = $db->prepare("SELECT id FROM pointages WHERE id=?");
+$check = $db->prepare("SELECT id, technician_id, date, debut, fin, notes FROM pointages WHERE id=?");
 $check->execute([$id]);
-if (!$check->fetch()) jsonResponse(['error' => 'Session introuvable'], 404);
+$old = $check->fetch();
+if (!$old) jsonResponse(['error' => 'Session introuvable'], 404);
 
 if ($action === 'delete') {
     $db->prepare("DELETE FROM pointages WHERE id=?")->execute([$id]);
+    addPointageHistory($id, (int)$old['technician_id'], $adminId, 'delete',
+        [
+            'date'  => $old['date'],
+            'debut' => $old['debut'],
+            'fin'   => $old['fin'],
+            'notes' => $old['notes'],
+        ],
+        null);
     jsonResponse(['success' => true]);
 }
 
@@ -67,6 +83,20 @@ if ($action === 'update') {
 
     $db->prepare("UPDATE pointages SET date=?, debut=?, fin=?, notes=? WHERE id=?")
        ->execute([$date, $debut, $fin, $notes, $id]);
+
+    addPointageHistory($id, (int)$old['technician_id'], $adminId, 'update',
+        [
+            'date'  => $old['date'],
+            'debut' => $old['debut'],
+            'fin'   => $old['fin'],
+            'notes' => $old['notes'],
+        ],
+        [
+            'date'  => $date,
+            'debut' => $debut,
+            'fin'   => $fin,
+            'notes' => $notes,
+        ]);
 
     jsonResponse(['success' => true]);
 }

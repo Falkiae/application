@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../lib/pointage.php';
 requireAdmin();
 
 $csrf = $_GET['csrf_token'] ?? '';
@@ -19,6 +20,7 @@ $where  = "strftime('%Y-%m', p.debut) = ?";
 $params = [$monthStr];
 if ($tech > 0) { $where .= " AND p.technician_id = ?"; $params[] = $tech; }
 
+// Raw sessions sheet
 $stmt = $db->prepare("
     SELECT t.name as technicien,
            date(p.debut) as date,
@@ -42,11 +44,51 @@ $rows = $stmt->fetchAll(PDO::FETCH_NUM);
 
 $headers = ['Technicien', 'Date', 'Heure début', 'Heure fin', 'Durée (h:mm)', 'Notes'];
 
+// Daily totals sheet — one row per (tech, day) with the 30-min break rule applied.
+$dailyStmt = $db->prepare("
+    SELECT t.name AS tech_name, p.technician_id, p.debut, p.fin
+    FROM pointages p
+    JOIN technicians t ON t.id = p.technician_id
+    WHERE $where
+    ORDER BY t.name ASC, p.debut ASC
+");
+$dailyStmt->execute($params);
+$byTech = [];   // tech_id => ['name' => ..., 'sessions' => [...]]
+foreach ($dailyStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $tid = (int)$r['technician_id'];
+    if (!isset($byTech[$tid])) $byTech[$tid] = ['name' => $r['tech_name'], 'sessions' => []];
+    $byTech[$tid]['sessions'][] = ['debut' => $r['debut'], 'fin' => $r['fin']];
+}
+$dailyRows = [];
+foreach ($byTech as $tid => $info) {
+    $agg = pointageAggregateSessions($info['sessions']);
+    $techTotal = 0;
+    foreach ($agg['days'] as $day => $d) {
+        $dailyRows[] = [
+            $info['name'],
+            $day,
+            (int)$d['sessions'],
+            pointageFmtHM($d['brut']),
+            pointageFmtHM($d['pause_reelle']),
+            pointageFmtHM($d['deduction']),
+            pointageFmtHM($d['net']),
+        ];
+        $techTotal += $d['net'];
+    }
+    if (!empty($agg['days'])) {
+        // Per-tech total row (empty columns except tech name and net)
+        $dailyRows[] = [$info['name'] . ' — Total', '', '', '', '', '', pointageFmtHM($techTotal)];
+    }
+}
+$dailyHeaders = ['Technicien', 'Date', 'Sessions', 'Brut (h:mm)', 'Pause réelle (h:mm)', 'Déduction (h:mm)', 'Net (h:mm)'];
+
 $xlsx = new XlsxWriter();
 // Admin monthly note (settings key note_YYYY-MM) — first sheet if present
 $note = getSetting("note_$monthStr");
 if ($note !== '') {
     $xlsx->addSheet('Note du mois', ['Note'], [[$note]]);
 }
+$xlsx->addSheet("Totaux journaliers $monthLabel", $dailyHeaders, $dailyRows);
 $xlsx->addSheet("Pointages $monthLabel", $headers, $rows);
 $xlsx->download("keepnew_pointages_$monthLabel.xlsx");
+
