@@ -1,6 +1,8 @@
 data/
 backups/
+backups_compliance/
 uploads/
+compliance/uploads/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
