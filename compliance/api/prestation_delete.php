@@ -36,6 +36,17 @@ if (!isAdmin() && $service['technician_id'] != currentUserId()) {
     jsonResponse(['error' => 'Accès refusé'], 403);
 }
 
+// Compliance: if the date is sealed, the soft-cancel path is blocked.
+// The caller must go through api/prestation_reverse.php (mode=cancel) to create
+// a counter-entry in today's journal.
+if (complianceIsDateSealed($service['date'])) {
+    jsonResponse([
+        'error'  => 'La journée du ' . $service['date'] . ' est clôturée. Utilisez « Contrepasser » pour annuler cette prestation.',
+        'sealed' => true,
+        'date'   => $service['date'],
+    ], 409);
+}
+
 $actorId = currentUserId();
 $db->prepare("UPDATE services SET cancelled_at = datetime('now','localtime'), cancelled_by = ?, cancelled_reason = ? WHERE id = ?")
    ->execute([$actorId, $reason, $id]);

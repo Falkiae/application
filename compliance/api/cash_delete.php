@@ -29,6 +29,15 @@ if (!isAdmin() && $mvt['technician_id'] !== currentUserId()) {
     jsonResponse(['error' => 'Accès refusé'], 403);
 }
 
+// Compliance: if the date is sealed, use api/cash_reverse.php (mode=cancel) instead.
+if (complianceIsDateSealed($mvt['date'])) {
+    jsonResponse([
+        'error'  => 'La journée du ' . $mvt['date'] . ' est clôturée. Utilisez « Contrepasser » pour annuler ce mouvement.',
+        'sealed' => true,
+        'date'   => $mvt['date'],
+    ], 409);
+}
+
 $actorId = currentUserId();
 $db->prepare("UPDATE cash_movements SET cancelled_at = datetime('now','localtime'), cancelled_by = ?, cancelled_reason = ? WHERE id = ?")
    ->execute([$actorId, $reason, $id]);

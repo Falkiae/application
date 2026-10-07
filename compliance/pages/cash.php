@@ -58,8 +58,16 @@ foreach ($techs as $tech) {
 
     // ── Merged movement list for the month ──────────────────────
     $stmt = $db->prepare("
-        SELECT id, type, montant, notes, date FROM cash_movements
-        WHERE technician_id=? AND strftime('%Y-%m', date)=?
+        SELECT cm.id, cm.type, cm.montant, cm.notes, cm.date, cm.receipt_no,
+               cm.cancelled_at, cm.cancels_id, cm.supersedes_id,
+               o1.receipt_no AS cancels_receipt_no,
+               o2.receipt_no AS supersedes_receipt_no,
+               rev.receipt_no AS reversed_by_receipt
+        FROM cash_movements cm
+        LEFT JOIN cash_movements o1 ON o1.id = cm.cancels_id
+        LEFT JOIN cash_movements o2 ON o2.id = cm.supersedes_id
+        LEFT JOIN cash_movements rev ON rev.cancels_id = cm.id
+        WHERE cm.technician_id=? AND strftime('%Y-%m', cm.date)=?
     ");
     $stmt->execute([$tid, $mStr]);
     $entries = [];
@@ -67,6 +75,13 @@ foreach ($techs as $tech) {
         $entries[] = [
             'kind'    => 'mvt',
             'id'      => $m['id'],
+            'receipt_no' => $m['receipt_no'],
+            'cancelled_at' => $m['cancelled_at'],
+            'cancels_id' => $m['cancels_id'],
+            'supersedes_id' => $m['supersedes_id'],
+            'cancels_receipt_no' => $m['cancels_receipt_no'],
+            'supersedes_receipt_no' => $m['supersedes_receipt_no'],
+            'reversed_by_receipt' => $m['reversed_by_receipt'],
             'type'    => $m['type'],
             'montant' => (float)$m['montant'],
             'notes'   => $m['notes'],
@@ -207,8 +222,12 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_fin'));
                 <?php foreach ($data['entries'] as $e):
                     $isOut = $e['montant'] < 0;
                     $isService = $e['kind'] === 'svc';
+                    $extraCls = '';
+                    if (!$isService) {
+                        if (!empty($e['cancelled_at']) || !empty($e['reversed_by_receipt'])) $extraCls = ' svc-cancelled';
+                    }
                 ?>
-                <div class="movement-item<?= $isService ? ' movement-item-service' : '' ?>"<?= $isService ? '' : ' id="mvt-' . $e['id'] . '"' ?>>
+                <div class="movement-item<?= $isService ? ' movement-item-service' : '' ?><?= $extraCls ?>"<?= $isService ? '' : ' id="mvt-' . $e['id'] . '"' ?>>
                     <div class="movement-icon <?= $isOut ? 'movement-out' : 'movement-in' ?>">
                         <?php if ($isOut): ?>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
@@ -217,9 +236,25 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_fin'));
                         <?php endif; ?>
                     </div>
                     <div class="movement-info">
-                        <span class="movement-type"><?= $isService ? 'Prestation cash' : ($mvtTypeLabels[$e['type']] ?? $e['type']) ?></span>
+                        <span class="movement-type">
+                            <?= $isService ? 'Prestation cash' : ($mvtTypeLabels[$e['type']] ?? $e['type']) ?>
+                            <?php if (!$isService && !empty($e['receipt_no'])): ?>
+                            <span class="svc-receipt-no">#<?= htmlspecialchars($e['receipt_no']) ?></span>
+                            <?php endif; ?>
+                        </span>
                         <?php if ($e['notes'] && !($isService && $e['notes'] === 'Prestation cash')): ?>
                         <span class="movement-note"><?= htmlspecialchars(mb_substr($e['notes'], 0, 40)) ?></span>
+                        <?php endif; ?>
+                        <?php if (!$isService): ?>
+                            <?php if (!empty($e['cancelled_at'])): ?>
+                            <span class="badge badge-cancel">Annulé</span>
+                            <?php elseif (!empty($e['reversed_by_receipt'])): ?>
+                            <span class="badge badge-reversed">Contrepassé par #<?= htmlspecialchars($e['reversed_by_receipt']) ?></span>
+                            <?php elseif (!empty($e['cancels_id'])): ?>
+                            <span class="badge badge-cancellation">Annulation de #<?= htmlspecialchars($e['cancels_receipt_no']) ?></span>
+                            <?php elseif (!empty($e['supersedes_id'])): ?>
+                            <span class="badge badge-correction">Correction de #<?= htmlspecialchars($e['supersedes_receipt_no']) ?></span>
+                            <?php endif; ?>
                         <?php endif; ?>
                         <span class="movement-date"><?= date('d/m/Y', strtotime($e['date'])) ?></span>
                     </div>

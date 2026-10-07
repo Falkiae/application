@@ -1,12 +1,18 @@
 <?php
+require_once __DIR__ . '/../lib/compliance.php';
+
 $db = getDB();
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) { header('Location: index.php?page=prestations'); exit; }
 
 $stmt = $db->prepare("
-    SELECT s.*, ct.label as type_label
+    SELECT s.*, ct.label as type_label,
+           o1.receipt_no AS cancels_receipt_no,
+           o2.receipt_no AS supersedes_receipt_no
     FROM services s
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
+    LEFT JOIN services o1 ON o1.id = s.cancels_id
+    LEFT JOIN services o2 ON o2.id = s.supersedes_id
     WHERE s.id = ?
 ");
 $stmt->execute([$id]);
@@ -18,6 +24,13 @@ if (!$service) { header('Location: index.php?page=prestations'); exit; }
 if (!isAdmin() && $service['technician_id'] != currentUserId()) {
     header('Location: index.php?page=prestations'); exit;
 }
+
+// Compliance context: is this row's date sealed? Is this row itself reversed/cancelled?
+$sealed = complianceIsDateSealed($service['date']);
+$check = $db->prepare("SELECT receipt_no FROM services WHERE cancels_id = ? LIMIT 1");
+$check->execute([$id]);
+$reversedByReceipt = $check->fetchColumn() ?: null;
+$isCancelled = $service['cancelled_at'] !== null;
 
 $cleaningTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
 
@@ -53,6 +66,41 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
 ?>
 
 <div class="edit-page">
+    <?php if ($service['receipt_no']): ?>
+    <div class="livre-receipt-badge">N° recette : <strong><?= htmlspecialchars($service['receipt_no']) ?></strong></div>
+    <?php endif; ?>
+
+    <?php if ($isCancelled): ?>
+    <div class="livre-warn" style="background:#fee2e2;color:#991b1b;border-color:#f87171;">
+        <strong>Prestation annulée</strong> le <?= date('d/m/Y H:i', strtotime($service['cancelled_at'])) ?>
+        — motif : <em><?= htmlspecialchars($service['cancelled_reason'] ?? '') ?></em>.
+        Cette prestation est en lecture seule.
+    </div>
+    <?php elseif ($reversedByReceipt): ?>
+    <div class="livre-warn" style="background:#fef3c7;color:#78350f;border-color:#fbbf24;">
+        <strong>Prestation contrepassée</strong> par la recette <strong>#<?= htmlspecialchars($reversedByReceipt) ?></strong>.
+        Les totaux restent cohérents grâce à la contre-écriture. Lecture seule.
+    </div>
+    <?php elseif ($sealed): ?>
+    <div class="livre-warn" style="background:#fef3c7;color:#78350f;border-color:#fbbf24;">
+        <strong>Journée clôturée (<?= date('d/m/Y', strtotime($service['date'])) ?>)</strong>.
+        Les champs comptables (date, montant, paiement, type, lieu, taux TVA) sont verrouillés.
+        Vous pouvez encore modifier les notes et photos. Pour corriger ou annuler cette prestation,
+        utilisez les boutons <strong>Contrepasser</strong> ou <strong>Annuler</strong> en bas de page.
+    </div>
+    <?php endif; ?>
+
+    <?php if ($service['cancels_id']): ?>
+    <div class="livre-warn" style="background:#fecaca;color:#991b1b;border-color:#f87171;">
+        Ligne d'<strong>annulation</strong> de la recette <strong>#<?= htmlspecialchars($service['cancels_receipt_no']) ?></strong>.
+    </div>
+    <?php endif; ?>
+    <?php if ($service['supersedes_id']): ?>
+    <div class="livre-warn" style="background:#dcfce7;color:#166534;border-color:#4ade80;">
+        Ligne de <strong>correction</strong> de la recette <strong>#<?= htmlspecialchars($service['supersedes_receipt_no']) ?></strong>.
+    </div>
+    <?php endif; ?>
+
     <form id="editForm">
         <input type="hidden" name="id" value="<?= $id ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
@@ -202,8 +250,19 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                 <div id="editSuccess" class="alert alert-success" style="display:none"></div>
 
                 <div class="edit-actions">
-                    <a href="index.php?page=prestations" class="btn btn-outline">Annuler</a>
-                    <button type="button" class="btn btn-primary" onclick="saveEdit(this)">Enregistrer les modifications</button>
+                    <a href="index.php?page=prestations" class="btn btn-outline">Retour</a>
+                    <?php if (!$isCancelled && !$reversedByReceipt): ?>
+                    <button type="button" class="btn btn-primary" onclick="saveEdit(this)"
+                        <?= $sealed ? 'title="Journée clôturée — seules les notes/photos seront sauvegardées"' : '' ?>>
+                        Enregistrer les modifications
+                    </button>
+                    <?php if ($sealed): ?>
+                    <button type="button" class="btn btn-warning" onclick="openReverseModal('supersede')">Contrepasser (corriger)</button>
+                    <button type="button" class="btn btn-danger" onclick="openReverseModal('cancel')">Annuler cette prestation</button>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-danger" onclick="openDeleteModal()">Supprimer</button>
+                    <?php endif; ?>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -279,6 +338,11 @@ async function saveEdit(btn) {
             suc.textContent = 'Modifications enregistrées avec succès !';
             suc.style.display = 'block';
             setTimeout(() => window.location.href = 'index.php?page=prestations', 1500);
+        } else if (data.sealed) {
+            err.innerHTML = (data.error || '') + '<br><em>Astuce : utilisez le bouton <strong>Contrepasser</strong> ci-dessous pour créer une correction.</em>';
+            err.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Enregistrer les modifications';
         } else {
             err.textContent = data.error || 'Erreur lors de l\'enregistrement';
             err.style.display = 'block';
@@ -346,6 +410,147 @@ document.getElementById('lightbox').addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeLightbox();
 });
+</script>
+
+<!-- Reverse / Delete modals -->
+<div class="modal-overlay" id="reverseModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="reverseTitle">Contrepasser cette prestation</h3>
+            <button class="modal-close" onclick="closeReverseModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="reverseExplain" style="font-size:.88rem;color:var(--gray-600);"></p>
+            <div class="form-group">
+                <label class="form-label">Motif <span style="color:#dc2626;">*</span></label>
+                <textarea id="reverseReason" class="form-input" rows="3" placeholder="Expliquez brièvement la raison (obligatoire)" maxlength="500"></textarea>
+            </div>
+            <div id="reverseError" class="alert alert-error" style="display:none;"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeReverseModal()">Annuler</button>
+            <button class="btn btn-primary" id="reverseConfirmBtn" onclick="confirmReverse()">Confirmer</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-icon modal-icon-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </div>
+        <h3 class="modal-title">Annuler cette prestation ?</h3>
+        <div class="form-group" style="margin:12px 0;">
+            <label class="form-label">Motif <span style="color:#dc2626;">*</span></label>
+            <textarea id="deleteReason" class="form-input" rows="2" maxlength="500" placeholder="Motif de l'annulation (obligatoire)"></textarea>
+        </div>
+        <div id="deleteError" class="alert alert-error" style="display:none;"></div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeDeleteModal()">Annuler</button>
+            <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDelete()">Supprimer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let reverseMode = 'cancel';
+
+function openReverseModal(mode) {
+    reverseMode = mode;
+    const isSupersede = mode === 'supersede';
+    document.getElementById('reverseTitle').textContent = isSupersede
+        ? 'Contrepasser (corriger) cette prestation'
+        : 'Annuler cette prestation (contrepassation)';
+    document.getElementById('reverseExplain').innerHTML = isSupersede
+        ? 'La prestation originale restera dans son jour clôturé. Deux nouvelles lignes seront créées <strong>dans la journée courante</strong> : une annulation (−montant) et une correction avec les valeurs du formulaire ci-dessus.'
+        : 'La prestation originale restera dans son jour clôturé. Une nouvelle ligne d\'annulation (−montant) sera créée <strong>dans la journée courante</strong>.';
+    document.getElementById('reverseReason').value = '';
+    document.getElementById('reverseError').style.display = 'none';
+    document.getElementById('reverseModal').classList.add('open');
+}
+function closeReverseModal() {
+    document.getElementById('reverseModal').classList.remove('open');
+}
+async function confirmReverse() {
+    const reason = document.getElementById('reverseReason').value.trim();
+    const errEl = document.getElementById('reverseError');
+    const btn = document.getElementById('reverseConfirmBtn');
+    errEl.style.display = 'none';
+    if (!reason) { errEl.textContent = 'Le motif est obligatoire.'; errEl.style.display = 'block'; return; }
+
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('id', '<?= $id ?>');
+    fd.append('mode', reverseMode);
+    fd.append('reason', reason);
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    if (reverseMode === 'supersede') {
+        // Reuse current form values as the correction payload
+        const form = document.getElementById('editForm');
+        new FormData(form).forEach((v, k) => {
+            if (k !== 'id' && k !== 'action' && k !== 'csrf_token') fd.append(k, v);
+        });
+    }
+    try {
+        const res = await fetch('api/prestation_reverse.php', { method: 'POST', body: fd });
+        const d = await res.json();
+        if (d.success) {
+            alert('Contrepassation effectuée. Nouvelles recettes : ' +
+                (d.annulation_receipt || '') + (d.correction_receipt ? ' + ' + d.correction_receipt : ''));
+            window.location.href = 'index.php?page=prestations';
+        } else {
+            errEl.textContent = d.error || 'Erreur';
+            errEl.style.display = 'block';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        errEl.textContent = 'Erreur réseau';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
+
+function openDeleteModal() {
+    document.getElementById('deleteReason').value = '';
+    document.getElementById('deleteError').style.display = 'none';
+    document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('open');
+}
+async function confirmDelete() {
+    const reason = document.getElementById('deleteReason').value.trim();
+    const errEl = document.getElementById('deleteError');
+    const btn = document.getElementById('deleteConfirmBtn');
+    errEl.style.display = 'none';
+    if (!reason) { errEl.textContent = 'Le motif est obligatoire.'; errEl.style.display = 'block'; return; }
+
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('id', '<?= $id ?>');
+    fd.append('reason', reason);
+    fd.append('csrf_token', document.getElementById('csrfToken').value);
+    try {
+        const res = await fetch('api/prestation_delete.php', { method: 'POST', body: fd });
+        const d = await res.json();
+        if (d.success) {
+            window.location.href = 'index.php?page=prestations';
+        } else if (d.sealed) {
+            // Date was sealed between page load and submit → fall back to reverse
+            closeDeleteModal();
+            alert(d.error);
+            openReverseModal('cancel');
+        } else {
+            errEl.textContent = d.error || 'Erreur';
+            errEl.style.display = 'block';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        errEl.textContent = 'Erreur réseau';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
 </script>
 
 <!-- Lightbox -->

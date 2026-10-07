@@ -35,18 +35,28 @@ if ($filterType > 0) {
 $whereStr = implode(' AND ', $where);
 
 $stmt = $db->prepare("
-    SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label
+    SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label,
+           o1.receipt_no AS cancels_receipt_no,
+           o2.receipt_no AS supersedes_receipt_no,
+           rev.receipt_no AS reversed_by_receipt
     FROM services s
     JOIN technicians t ON t.id = s.technician_id
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
+    LEFT JOIN services o1  ON o1.id  = s.cancels_id
+    LEFT JOIN services o2  ON o2.id  = s.supersedes_id
+    LEFT JOIN services rev ON rev.cancels_id = s.id
     WHERE $whereStr
-    ORDER BY s.date DESC, s.created_at DESC
+    ORDER BY s.date DESC, s.receipt_no DESC
 ");
 $stmt->execute($params);
 $services = $stmt->fetchAll();
 
-// Totals
-$totalMontant = array_sum(array_column($services, 'montant'));
+// Totals: exclude soft-cancelled rows (never had a counter-entry).
+// Counter-entries themselves (cancels_id rows with negative montant) are included → algebraic sum correct.
+$totalMontant = 0;
+foreach ($services as $s) {
+    if ($s['cancelled_at'] === null) $totalMontant += (float)$s['montant'];
+}
 $totalCount = count($services);
 
 // Technicians for filter (admin only)
@@ -128,15 +138,27 @@ for ($i = 0; $i < 12; $i++) {
     </div>
     <?php else: ?>
     <div class="service-list">
-        <?php foreach ($services as $s): ?>
-        <div class="service-card service-card-full" id="sc-<?= $s['id'] ?>">
+        <?php foreach ($services as $s):
+            $isSoftCancelled = $s['cancelled_at'] !== null;
+            $isReversed      = $s['reversed_by_receipt'] !== null && !$isSoftCancelled;
+            $isCancellation  = $s['cancels_id'] !== null;
+            $isCorrection    = $s['supersedes_id'] !== null;
+            $cardCls = '';
+            if ($isSoftCancelled || $isReversed) $cardCls = 'svc-cancelled';
+        ?>
+        <div class="service-card service-card-full <?= $cardCls ?>" id="sc-<?= $s['id'] ?>">
             <div class="service-card-main" onclick="window.location='index.php?page=prestation_edit&id=<?= $s['id'] ?>'">
                 <div class="service-card-left">
                     <div class="tech-avatar tech-avatar-sm" style="background:<?= htmlspecialchars($s['tech_color']) ?>">
                         <?= strtoupper(substr($s['tech_name'], 0, 1)) ?>
                     </div>
                     <div class="service-info">
-                        <div class="service-type"><?= htmlspecialchars($s['type_label']) ?></div>
+                        <div class="service-type">
+                            <?= htmlspecialchars($s['type_label']) ?>
+                            <?php if ($s['receipt_no']): ?>
+                            <span class="svc-receipt-no">#<?= htmlspecialchars($s['receipt_no']) ?></span>
+                            <?php endif; ?>
+                        </div>
                         <div class="service-meta">
                             <?= htmlspecialchars(date('d/m/Y', strtotime($s['date']))) ?>
                             · <?= $lieuLabels[$s['lieu']] ?? $s['lieu'] ?>
@@ -152,6 +174,15 @@ for ($i = 0; $i < 12; $i++) {
                             <span class="badge badge-invoice">Facture à faire</span>
                             <?php elseif ($s['facture_envoyee']): ?>
                             <span class="badge badge-invoice-sent">Facture envoyée</span>
+                            <?php endif; ?>
+                            <?php if ($isSoftCancelled): ?>
+                            <span class="badge badge-cancel">Annulée</span>
+                            <?php elseif ($isReversed): ?>
+                            <span class="badge badge-reversed">Contrepassée par #<?= htmlspecialchars($s['reversed_by_receipt']) ?></span>
+                            <?php elseif ($isCancellation): ?>
+                            <span class="badge badge-cancellation">Annulation de #<?= htmlspecialchars($s['cancels_receipt_no']) ?></span>
+                            <?php elseif ($isCorrection): ?>
+                            <span class="badge badge-correction">Correction de #<?= htmlspecialchars($s['supersedes_receipt_no']) ?></span>
                             <?php endif; ?>
                         </div>
                     </div>

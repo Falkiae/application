@@ -2145,3 +2145,79 @@ select.form-input, .form-select {
   .pt-kpis { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .pt-kpi-val { font-size: 1rem; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* Livre de recettes (Phase 2 compliance)                                   */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+.livre-page { max-width: 1200px; }
+.livre-warn { background:#fef3c7; color:#78350f; border:1px solid #fbbf24; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:.9rem; }
+.livre-warn a { color:#78350f; text-decoration:underline; }
+
+.livre-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.livre-filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.livre-filters select { padding:6px 10px; border:1px solid var(--gray-300); border-radius:6px; font-size:.9rem; }
+.livre-actions { display:flex; gap:8px; }
+
+.livre-paper { background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:24px 28px; }
+.livre-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid var(--gray-200); }
+.livre-identity h1 { margin:0 0 4px; font-size:1.2rem; }
+.livre-identity div { font-size:.82rem; color:var(--gray-600); }
+.livre-identity .livre-address { white-space:pre-line; }
+.livre-title { text-align:right; }
+.livre-title h2 { margin:0 0 2px; font-size:1.1rem; letter-spacing:.04em; text-transform:uppercase; }
+.livre-period { font-weight:600; font-size:1rem; color:var(--dark); }
+.livre-gendate { font-size:.75rem; color:var(--gray-500); }
+
+.livre-empty { text-align:center; color:var(--gray-500); padding:30px 0; }
+
+.livre-table { width:100%; border-collapse:collapse; font-size:.82rem; margin:12px 0; }
+.livre-table th { background:var(--gray-100); padding:8px 6px; text-align:left; border-bottom:1.5px solid var(--gray-300); font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-700); }
+.livre-table th.num, .livre-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.livre-table td { padding:6px; border-bottom:1px solid var(--gray-200); vertical-align:top; }
+.livre-table .receipt-no { font-family:ui-monospace, monospace; font-weight:600; color:var(--primary); }
+
+.livre-daytotal td { background:#f7f8fa; font-weight:600; font-size:.78rem; color:var(--gray-700); }
+.livre-total td { background:#e0e7ff; font-weight:700; font-size:.88rem; color:#1e3a8a; border-top:2px solid #1e3a8a; }
+
+.livre-cancelled td { background:#fff1f2; color:#9ca3af; text-decoration:line-through; }
+.livre-reversed td { background:#fef3c7; }
+.livre-cancellation td { background:#fee2e2; }
+.livre-correction td { background:#dcfce7; }
+
+.badge-active       { display:inline-block; padding:2px 7px; border-radius:4px; font-size:.7rem; background:#dcfce7; color:#166534; }
+.badge-cancel       { display:inline-block; padding:2px 7px; border-radius:4px; font-size:.7rem; background:#fee2e2; color:#991b1b; }
+.badge-reversed     { display:inline-block; padding:2px 7px; border-radius:4px; font-size:.7rem; background:#fef3c7; color:#78350f; }
+.badge-cancellation { display:inline-block; padding:2px 7px; border-radius:4px; font-size:.7rem; background:#fecaca; color:#991b1b; }
+.badge-correction   { display:inline-block; padding:2px 7px; border-radius:4px; font-size:.7rem; background:#bbf7d0; color:#166534; }
+
+.livre-note { font-size:.75rem; color:var(--gray-500); margin:16px 0 0; }
+.livre-footer { margin-top:20px; padding-top:12px; border-top:1px solid var(--gray-200); font-size:.72rem; color:var(--gray-500); text-align:center; }
+
+/* ─── Soft-cancelled rows marker (prestations list)  ──────────────────── */
+.svc-cancelled { opacity:.6; text-decoration:line-through; }
+
+/* ─── Print styles ────────────────────────────────────────────────────── */
+@media print {
+    @page { size: A4 landscape; margin: 15mm; }
+    body { background:#fff !important; font-size: 11pt; }
+    .sidebar, .top-header, .bottom-nav, .notif-panel, .sidebar-overlay,
+    .no-print, .livre-toolbar { display:none !important; }
+    .main-content { margin:0 !important; padding:0 !important; }
+    .admin-page { padding:0 !important; max-width:none !important; }
+    .livre-paper { border:none !important; padding:0 !important; box-shadow:none !important; }
+    .livre-header { page-break-after: avoid; }
+    .livre-table thead { display: table-header-group; }
+    .livre-table tr { page-break-inside: avoid; }
+    .livre-cancelled td { background:transparent !important; color:#000 !important; }
+    .livre-total td { background:transparent !important; border-top:2px solid #000 !important; color:#000 !important; }
+    .livre-daytotal td { background:transparent !important; border-top:1px solid #666 !important; }
+    .badge-active, .badge-cancel, .badge-reversed, .badge-cancellation, .badge-correction {
+        background:transparent !important; border:1px solid #666 !important; color:#000 !important;
+    }
+    a { color:inherit !important; text-decoration:none !important; }
+}
+
+/* Compliance badges in prestations/cash lists */
+.svc-receipt-no { display:inline-block; margin-left:8px; font-family:ui-monospace, monospace; font-size:.72rem; color:var(--primary); font-weight:600; }
+.livre-receipt-badge { display:inline-block; background:#eef2ff; color:#3730a3; font-family:ui-monospace, monospace; padding:6px 12px; border-radius:6px; font-size:.85rem; margin-bottom:10px; }

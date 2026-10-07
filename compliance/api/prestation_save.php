@@ -56,6 +56,11 @@ function sanitizePhotoPath(?string $path): ?string {
 }
 
 if ($action === 'create') {
+    // Compliance: cannot create a prestation on an already-sealed day.
+    if (complianceIsDateSealed($date)) {
+        jsonResponse(['error' => 'La journée du ' . $date . ' est clôturée. Pour corriger une prestation existante, utilisez « Contrepasser ».'], 409);
+    }
+
     // Compute compliance fields (VAT breakdown + sequential receipt number).
     $vatRate = COMPLIANCE_DEFAULT_VAT_RATE;
     $split   = complianceSplitVAT($montant, $vatRate);
@@ -110,6 +115,29 @@ if ($action === 'create') {
     $old = $stmt->fetch();
     if (!$old) jsonResponse(['error' => 'Prestation introuvable'], 404);
     if (!isAdmin() && $old['technician_id'] != $actorId) jsonResponse(['error' => 'Accès refusé'], 403);
+    if ($old['cancelled_at'] !== null) jsonResponse(['error' => 'Cette prestation est annulée, elle ne peut plus être modifiée.'], 409);
+
+    // Compliance: if the original date is sealed, only non-accounting fields may be edited.
+    // Accounting fields require a contrepassation (api/prestation_reverse.php).
+    if (complianceIsDateSealed($old['date'])) {
+        $accountingDiffs = [];
+        if ((int)$assignedTechId !== (int)$old['technician_id'])                $accountingDiffs[] = 'technicien';
+        if ($date !== $old['date'])                                             $accountingDiffs[] = 'date';
+        if ((int)$typeId !== (int)$old['type_nettoyage_id'])                    $accountingDiffs[] = 'type';
+        if ($lieu !== $old['lieu'])                                             $accountingDiffs[] = 'lieu';
+        if ((int)$ticketTva !== (int)$old['ticket_tva'])                        $accountingDiffs[] = 'ticket TVA';
+        if ($paiement !== $old['paiement'])                                     $accountingDiffs[] = 'mode de paiement';
+        if ((int)$factureAFaire !== (int)$old['facture_a_faire'])               $accountingDiffs[] = 'facture à faire';
+        if (abs((float)$montant - (float)$old['montant']) > 0.001)              $accountingDiffs[] = 'montant';
+        if (isset($_POST['vat_rate']) && (float)$_POST['vat_rate'] !== (float)$old['vat_rate']) $accountingDiffs[] = 'taux TVA';
+        if (!empty($accountingDiffs)) {
+            jsonResponse([
+                'error' => 'La journée du ' . $old['date'] . ' est clôturée. Les champs comptables (' . implode(', ', $accountingDiffs) . ') ne peuvent plus être modifiés directement. Utilisez « Contrepasser » pour créer une correction.',
+                'sealed' => true,
+                'date'   => $old['date'],
+            ], 409);
+        }
+    }
 
     // Handle photo deletion
     $newPhotoAvant = $photoAvant === '__deleted__' ? null : (sanitizePhotoPath($photoAvant) ?? $old['photo_avant']);

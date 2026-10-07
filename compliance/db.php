@@ -15,6 +15,8 @@ function getDB(): PDO {
             // to legacy rows and seals past days. Idempotent via settings flag.
             require_once __DIR__ . '/lib/compliance.php';
             complianceRetroconformHistoricalData();
+            // Daily close sweep (Phase 2): seals every past date with activity. Idempotent.
+            complianceCloseStaleDays();
         } catch (PDOException $e) {
             die(json_encode(['error' => 'Database connection failed']));
         }

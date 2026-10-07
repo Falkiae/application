@@ -11,14 +11,14 @@ $page = $_GET['page'] ?? 'dashboard';
 
 // Whitelist of allowed pages
 $publicPages = ['login'];
-$adminPages = ['admin/index', 'admin/techniciens', 'admin/types', 'admin/historique', 'admin/pointage_historique', 'admin/entreprise', 'notes'];
+$adminPages = ['admin/index', 'admin/techniciens', 'admin/types', 'admin/historique', 'admin/pointage_historique', 'admin/entreprise', 'admin/livre_recettes', 'notes'];
 $allPages = [
     'dashboard', 'login',
     'prestation_new', 'prestation_edit', 'prestations',
     'cash', 'export',
     'abonnements', 'abonnement_detail',
     'stats', 'pointage', 'notes',
-    'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique', 'admin/pointage_historique', 'admin/entreprise'
+    'admin/index', 'admin/techniciens', 'admin/types', 'admin/historique', 'admin/pointage_historique', 'admin/entreprise', 'admin/livre_recettes'
 ];
 
 if (!in_array($page, $allPages)) {
@@ -76,6 +76,7 @@ $pageTitle = match($page) {
     'admin/historique'   => 'Historique',
     'admin/pointage_historique' => 'Historique pointages',
     'admin/entreprise'   => 'Fiche entreprise',
+    'admin/livre_recettes' => 'Livre de recettes',
     default              => 'Keepnew'
 };
 ?>

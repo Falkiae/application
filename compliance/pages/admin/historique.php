@@ -29,8 +29,8 @@ $stmt->execute(array_merge($params, [$perPage, $offset]));
 $history = $stmt->fetchAll();
 
 $technicians = $db->query("SELECT id, name FROM technicians ORDER BY name")->fetchAll();
-$actionLabels = ['create'=>'Ajout','update'=>'Modification','delete'=>'Suppression'];
-$actionColors = ['create'=>'badge-success','update'=>'badge-warning','delete'=>'badge-danger'];
+$actionLabels = ['create'=>'Ajout','update'=>'Modification','delete'=>'Suppression','cancel'=>'Annulation','supersede'=>'Correction'];
+$actionColors = ['create'=>'badge-success','update'=>'badge-warning','delete'=>'badge-danger','cancel'=>'badge-cancel','supersede'=>'badge-correction'];
 ?>
 
 <div class="admin-page">

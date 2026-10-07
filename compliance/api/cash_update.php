@@ -23,6 +23,15 @@ if (!isAdmin() && $mvt['technician_id'] !== currentUserId()) {
     jsonResponse(['error' => 'Accès refusé'], 403);
 }
 
+// Compliance: block edits on sealed dates — only reverse-entry allowed.
+if (complianceIsDateSealed($mvt['date'])) {
+    jsonResponse([
+        'error'  => 'La journée du ' . $mvt['date'] . ' est clôturée. Utilisez « Contrepasser » pour corriger ce mouvement.',
+        'sealed' => true,
+        'date'   => $mvt['date'],
+    ], 409);
+}
+
 $type    = trim($_POST['type'] ?? '');
 $montant = (float)($_POST['montant'] ?? 0);
 $date    = trim($_POST['date'] ?? '');
