@@ -68,9 +68,37 @@ foreach ($rows as $r) {
     if ($r['supersedes_id']) $supersededBy[(int)$r['supersedes_id']] = $r['receipt_no'];
 }
 
-// Totals: by day, by month (if period != month), overall
+// Pre-compute motif for each row — one of three sources depending on status.
+// For a cancellation/correction counter-entry, the motif lives inside `notes`
+// (prefixed as "Annulation de #... — <motif>" or "Correction de #... — <motif> | <orig notes>").
+$motifByRow = [];
+// Also map : for a row that has been reversed (original), link to its counter-entry's motif.
+$motifByReversed = [];
+foreach ($rows as $r) {
+    $m = null;
+    if ($r['cancelled_at']) {
+        $m = $r['cancelled_reason'];
+    } elseif ($r['cancels_id']) {
+        // notes = "Annulation de #YYYY-NNNNN — <motif>"
+        if (!empty($r['notes']) && preg_match('/^Annulation de #[^ ]+ — (.+)$/u', $r['notes'], $mm)) {
+            $m = trim($mm[1]);
+        }
+        if ($m !== null) $motifByReversed[(int)$r['cancels_id']] = $m;
+    } elseif ($r['supersedes_id']) {
+        // notes = "Correction de #YYYY-NNNNN — <motif>[ | <orig notes>]"
+        if (!empty($r['notes']) && preg_match('/^Correction de #[^ ]+ — (.+)$/u', $r['notes'], $mm)) {
+            $raw = trim($mm[1]);
+            $parts = explode(' | ', $raw, 2);
+            $m = trim($parts[0]);
+        }
+    }
+    if ($m) $motifByRow[(int)$r['id']] = $m;
+}
+
+// Totals: by day, by month (if period != month), overall + per VAT rate
 $totalsByDay = [];
 $totalsOverall = ['nb' => 0, 'htva' => 0, 'tva' => 0, 'tvac' => 0];
+$totalsByRate  = [];   // [rate_str => ['htva', 'tva', 'tvac', 'nb']]
 foreach ($rows as $r) {
     // Exclude soft-cancelled rows (never had a counter-entry) from totals.
     // Counter-entries (cancels_id/supersedes_id rows) and originals that have been
@@ -86,7 +114,18 @@ foreach ($rows as $r) {
     $totalsOverall['htva'] += (float)$r['montant_htva'];
     $totalsOverall['tva']  += (float)$r['montant_tva'];
     $totalsOverall['tvac'] += (float)$r['montant'];
+
+    $rate = (float)$r['vat_rate'];
+    $rateKey = number_format($rate, 0);  // '21'
+    if (!isset($totalsByRate[$rateKey])) {
+        $totalsByRate[$rateKey] = ['rate' => $rate, 'nb' => 0, 'htva' => 0, 'tva' => 0, 'tvac' => 0];
+    }
+    $totalsByRate[$rateKey]['nb']   += 1;
+    $totalsByRate[$rateKey]['htva'] += (float)$r['montant_htva'];
+    $totalsByRate[$rateKey]['tva']  += (float)$r['montant_tva'];
+    $totalsByRate[$rateKey]['tvac'] += (float)$r['montant'];
 }
+ksort($totalsByRate);
 
 $fmtEur = fn($v) => number_format((float)$v, 2, ',', ' ');
 $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', 'facture'=>'Sur facture'];
@@ -224,6 +263,19 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                     <td><?= htmlspecialchars($r['facture_ref'] ?? '') ?></td>
                     <td><?= $statusBadge ?></td>
                 </tr>
+                <?php
+                // Motif sub-row — shown for soft-cancelled / cancellation / correction entries,
+                // AND for originals that have been reversed by a counter-entry.
+                $rowId = (int)$r['id'];
+                $motif = $motifByRow[$rowId] ?? ($motifByReversed[$rowId] ?? null);
+                if ($motif): ?>
+                <tr class="livre-motif-row">
+                    <td></td>
+                    <td colspan="9" class="livre-motif-text">
+                        <strong>Motif :</strong> <?= htmlspecialchars($motif) ?>
+                    </td>
+                </tr>
+                <?php endif; ?>
                 <?php endforeach;
                 // Last day's sub-total
                 if ($currentDay !== null && isset($totalsByDay[$currentDay])):
@@ -248,6 +300,33 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                 </tr>
             </tfoot>
         </table>
+
+        <!-- Ventilation par taux TVA — requis par AR n°1 art. 15 §4 pour la déclaration TVA -->
+        <?php if (!empty($totalsByRate)): ?>
+        <table class="livre-vat-breakdown">
+            <caption>Ventilation par taux TVA — <?= htmlspecialchars($periodLabel) ?> (base pour la déclaration TVA)</caption>
+            <thead>
+                <tr>
+                    <th>Taux TVA</th>
+                    <th class="num">Nb opérations</th>
+                    <th class="num">Base imposable (HTVA)</th>
+                    <th class="num">TVA</th>
+                    <th class="num">Total TVAC</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($totalsByRate as $k => $tr): ?>
+                <tr>
+                    <td><?= number_format($tr['rate'], 0) ?> %</td>
+                    <td class="num"><?= (int)$tr['nb'] ?></td>
+                    <td class="num"><?= $fmtEur($tr['htva']) ?> €</td>
+                    <td class="num"><?= $fmtEur($tr['tva']) ?> €</td>
+                    <td class="num"><?= $fmtEur($tr['tvac']) ?> €</td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
 
         <p class="livre-note no-print">
             <em>Les lignes « Annulation » et « Correction » sont des contre-écritures légales (contrepassation).

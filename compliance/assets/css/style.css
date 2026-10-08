@@ -2254,3 +2254,48 @@ input[type="checkbox"]:disabled + * {
     opacity: .5;
     cursor: not-allowed;
 }
+
+/* Motif sub-row in livre de recettes */
+.livre-motif-row td.livre-motif-text {
+    padding: 4px 10px 10px 18px !important;
+    background: #fffbeb;
+    color: #78350f;
+    font-size: .78rem;
+    font-style: italic;
+    border-left: 3px solid #fbbf24;
+    border-bottom: 1px solid var(--gray-200);
+}
+.livre-motif-row td:first-child {
+    background: #fffbeb;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+/* VAT rate breakdown table */
+.livre-vat-breakdown {
+    width: auto; margin: 18px 0 10px auto;
+    border-collapse: collapse; font-size: .82rem;
+    border: 1.5px solid #1e3a8a;
+}
+.livre-vat-breakdown caption {
+    caption-side: top; text-align: right;
+    font-size: .78rem; font-weight: 600; color: #1e3a8a;
+    padding: 4px 0;
+}
+.livre-vat-breakdown th {
+    background: #e0e7ff; color: #1e3a8a;
+    padding: 6px 12px; text-align: left; font-weight: 600;
+    border-bottom: 1px solid #1e3a8a;
+}
+.livre-vat-breakdown td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; }
+.livre-vat-breakdown th.num, .livre-vat-breakdown td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.livre-vat-breakdown tr:last-child td { border-bottom: none; }
+
+@media print {
+    .livre-motif-row td.livre-motif-text {
+        background: transparent !important;
+        border-left: 2px solid #000 !important;
+    }
+    .livre-motif-row td:first-child { background: transparent !important; }
+    .livre-vat-breakdown { border-color: #000 !important; }
+    .livre-vat-breakdown th { background: transparent !important; color: #000 !important; border-bottom-color: #000 !important; }
+}
