@@ -93,25 +93,36 @@ $stmtInvCount = $db->prepare("
 $stmtInvCount->execute($invoiceParams);
 $totalPendingInvoices = (int)$stmtInvCount->fetchColumn();
 
-// Recent services (last 8)
+// Recent services (last 8) — compliance: show only logical prestations, use effective
+// values from the correction row if any; hide counter-entries and soft-cancelled rows.
+$recentSelect = "
+    SELECT s.id,
+           s.receipt_no,
+           s.date,
+           s.created_at,
+           COALESCE(corr.montant,         s.montant)         AS montant,
+           COALESCE(corr.paiement,        s.paiement)        AS paiement,
+           COALESCE(corr.lieu,            s.lieu)            AS lieu,
+           COALESCE(corr.facture_a_faire, s.facture_a_faire) AS facture_a_faire,
+           COALESCE(corr.facture_envoyee, s.facture_envoyee) AS facture_envoyee,
+           corr.id         AS correction_id,
+           corr.receipt_no AS correction_receipt_no,
+           corr.date       AS correction_date,
+           t.name as tech_name, t.color as tech_color, ct.label as type_label
+    FROM services s
+    JOIN technicians t ON t.id = COALESCE(
+        (SELECT c.technician_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1),
+        s.technician_id)
+    JOIN cleaning_types ct ON ct.id = COALESCE(
+        (SELECT c.type_nettoyage_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1),
+        s.type_nettoyage_id)
+    LEFT JOIN services corr ON corr.supersedes_id = s.id
+    WHERE s.cancels_id IS NULL AND s.supersedes_id IS NULL AND s.cancelled_at IS NULL";
 if ($isAdm) {
-    $stmtRecent = $db->prepare("
-        SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label
-        FROM services s
-        JOIN technicians t ON t.id = s.technician_id
-        JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
-        ORDER BY s.created_at DESC LIMIT 8
-    ");
+    $stmtRecent = $db->prepare($recentSelect . " ORDER BY s.created_at DESC LIMIT 8");
     $stmtRecent->execute([]);
 } else {
-    $stmtRecent = $db->prepare("
-        SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label
-        FROM services s
-        JOIN technicians t ON t.id = s.technician_id
-        JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
-        WHERE s.technician_id = ?
-        ORDER BY s.created_at DESC LIMIT 8
-    ");
+    $stmtRecent = $db->prepare($recentSelect . " AND s.technician_id = ? ORDER BY s.created_at DESC LIMIT 8");
     $stmtRecent->execute([$techId]);
 }
 $recentServices = $stmtRecent->fetchAll();
@@ -223,8 +234,10 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
         </div>
         <?php else: ?>
         <div class="service-list">
-            <?php foreach ($recentServices as $s): ?>
-            <div class="service-card" onclick="window.location='index.php?page=prestation_edit&id=<?= $s['id'] ?>'">
+            <?php foreach ($recentServices as $s):
+                $clickId = $s['correction_id'] ?? $s['id'];
+            ?>
+            <div class="service-card" onclick="window.location='index.php?page=prestation_edit&id=<?= (int)$clickId ?>'">
                 <div class="service-card-left">
                     <div class="tech-avatar tech-avatar-sm" style="background:<?= htmlspecialchars($s['tech_color']) ?>">
                         <?= strtoupper(substr($s['tech_name'], 0, 1)) ?>
@@ -235,6 +248,9 @@ $lieuLabels = ['domicile'=>'Domicile','atelier'=>'Atelier'];
                             <?= htmlspecialchars(date('d/m/Y', strtotime($s['date']))) ?>
                             · <?= $lieuLabels[$s['lieu']] ?? $s['lieu'] ?>
                             <?php if ($isAdm): ?> · <?= htmlspecialchars($s['tech_name']) ?><?php endif; ?>
+                            <?php if ($s['correction_id']): ?>
+                            · <span class="svc-corrected-mark" title="Modifiée le <?= date('d/m/Y', strtotime($s['correction_date'])) ?>">✎ Modifiée</span>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
