@@ -249,6 +249,16 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                 <div id="editError" class="alert alert-error" style="display:none"></div>
                 <div id="editSuccess" class="alert alert-success" style="display:none"></div>
 
+                <?php if (!$isCancelled && !$reversedByReceipt): ?>
+                <div class="form-group" style="border-top:1px solid var(--gray-200); padding-top:14px; margin-top:14px;">
+                    <label class="form-label" for="editReason">
+                        Motif de la modification <span style="color:#dc2626;">*</span>
+                    </label>
+                    <textarea id="editReason" name="reason" class="form-input" rows="2" maxlength="500"
+                        placeholder="Expliquez brièvement la correction apportée (obligatoire pour l'audit comptable)"></textarea>
+                </div>
+                <?php endif; ?>
+
                 <div class="edit-actions">
                     <a href="index.php?page=prestations" class="btn btn-outline">Retour</a>
                     <?php if (!$isCancelled && !$reversedByReceipt): ?>
@@ -319,6 +329,16 @@ async function saveEdit(btn) {
     err.style.display = 'none';
     suc.style.display = 'none';
 
+    // Reason is mandatory for every modification (compliance audit trail).
+    const reasonEl = document.getElementById('editReason');
+    const reason = reasonEl ? reasonEl.value.trim() : '';
+    if (!reason) {
+        err.textContent = 'Veuillez indiquer un motif de modification (obligatoire pour l\'audit comptable).';
+        err.style.display = 'block';
+        reasonEl && reasonEl.focus();
+        return;
+    }
+
     // Handle checkbox -> hidden fields
     const tva = document.getElementById('editTva');
     const facture = document.getElementById('editFacture');
@@ -327,6 +347,7 @@ async function saveEdit(btn) {
     // Ensure unchecked checkboxes send 0
     if (!tva.checked) fd.set('ticket_tva', '0');
     if (!facture.checked) fd.set('facture_a_faire', '0');
+    fd.set('reason', reason);
 
     btn.disabled = true;
     btn.textContent = 'Enregistrement...';

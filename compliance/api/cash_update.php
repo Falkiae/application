@@ -10,8 +10,10 @@ if (!verifyCsrfToken($csrf)) jsonResponse(['error' => 'Token invalide'], 403);
 
 $db = getDB();
 $id = (int)($_POST['id'] ?? 0);
-$reason = trim($_POST['reason'] ?? '') ?: null;
+$reason = trim($_POST['reason'] ?? '');
 if (!$id) jsonResponse(['error' => 'ID manquant'], 400);
+if ($reason === '')         jsonResponse(['error' => 'Un motif de modification est obligatoire.'], 400);
+if (strlen($reason) > 500)  jsonResponse(['error' => 'Motif trop long (max 500 caractères).'], 400);
 
 $stmt = $db->prepare("SELECT * FROM cash_movements WHERE id=?");
 $stmt->execute([$id]);

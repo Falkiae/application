@@ -107,7 +107,9 @@ if ($action === 'create') {
 } elseif ($action === 'update') {
     $id = (int)($_POST['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'ID manquant'], 400);
-    $reason = trim($_POST['reason'] ?? '') ?: null;
+    $reason = trim($_POST['reason'] ?? '');
+    if ($reason === '')         jsonResponse(['error' => 'Un motif de modification est obligatoire.'], 400);
+    if (strlen($reason) > 500)  jsonResponse(['error' => 'Motif trop long (max 500 caractères).'], 400);
 
     // Fetch old values & check ownership
     $stmt = $db->prepare("SELECT * FROM services WHERE id = ?");

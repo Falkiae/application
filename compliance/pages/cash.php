@@ -363,6 +363,11 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_fin'));
                 <label class="form-label">Notes (optionnel)</label>
                 <input type="text" id="editMvtNotes" class="form-input">
             </div>
+            <div class="form-group">
+                <label class="form-label">Motif de la modification <span style="color:#dc2626;">*</span></label>
+                <textarea id="editMvtReason" class="form-input" rows="2" maxlength="500"
+                    placeholder="Expliquez brièvement la correction (obligatoire pour l'audit comptable)"></textarea>
+            </div>
             <div id="editMvtError" class="alert alert-error" style="display:none"></div>
         </div>
         <div class="modal-actions">
@@ -378,11 +383,17 @@ $globalTotal = array_sum(array_column(array_values($cashSummary), 'solde_fin'));
         <div class="modal-icon modal-icon-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
         </div>
-        <h3 class="modal-title">Supprimer ce mouvement ?</h3>
-        <p class="modal-body">Cette action est irréversible.</p>
+        <h3 class="modal-title">Annuler ce mouvement ?</h3>
+        <p class="modal-body">La ligne restera dans le journal mais sera marquée annulée.</p>
+        <div class="form-group" style="margin:12px 0;text-align:left;">
+            <label class="form-label">Motif <span style="color:#dc2626;">*</span></label>
+            <textarea id="deleteMvtReason" class="form-input" rows="2" maxlength="500"
+                placeholder="Pourquoi annuler ce mouvement ? (obligatoire)"></textarea>
+        </div>
+        <div id="deleteMvtError" class="alert alert-error" style="display:none"></div>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeDeleteMvt()">Annuler</button>
-            <button class="btn btn-danger" id="confirmDeleteMvt">Supprimer</button>
+            <button class="btn btn-outline" onclick="closeDeleteMvt()">Fermer</button>
+            <button class="btn btn-danger" id="confirmDeleteMvt">Annuler le mouvement</button>
         </div>
     </div>
 </div>
@@ -434,6 +445,7 @@ function editMvt(id, type, montant, date, notes) {
     document.getElementById('editMvtMontant').value = montant;
     document.getElementById('editMvtDate').value = date;
     document.getElementById('editMvtNotes').value = notes || '';
+    document.getElementById('editMvtReason').value = '';
     document.getElementById('editMvtError').style.display = 'none';
     const radio = document.querySelector(`input[name="editCashType"][value="${type}"]`);
     if (radio) radio.checked = true;
@@ -447,25 +459,42 @@ async function saveEditMvt() {
     const montant = document.getElementById('editMvtMontant').value;
     const date    = document.getElementById('editMvtDate').value;
     const notes   = document.getElementById('editMvtNotes').value;
+    const reason  = document.getElementById('editMvtReason').value.trim();
     const err     = document.getElementById('editMvtError');
     err.style.display = 'none';
     if (!montant || parseFloat(montant) <= 0) {
         err.textContent = 'Veuillez saisir un montant valide'; err.style.display = 'block'; return;
     }
+    if (!reason) {
+        err.textContent = 'Le motif de la modification est obligatoire.';
+        err.style.display = 'block';
+        document.getElementById('editMvtReason').focus();
+        return;
+    }
     const fd = new FormData();
     fd.append('id', id); fd.append('type', type);
     fd.append('montant', montant); fd.append('date', date); fd.append('notes', notes);
+    fd.append('reason', reason);
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/cash_update.php', {method:'POST', body:fd});
     const data = await res.json();
-    if (data.success) { window.location.reload(); }
-    else { err.textContent = data.error || 'Erreur'; err.style.display = 'block'; }
+    if (data.success) {
+        window.location.reload();
+    } else if (data.sealed) {
+        err.innerHTML = (data.error || '') + '<br><em>Astuce : utilisez « Contrepasser » pour corriger un mouvement d\'une journée clôturée.</em>';
+        err.style.display = 'block';
+    } else {
+        err.textContent = data.error || 'Erreur';
+        err.style.display = 'block';
+    }
 }
 
 // ── Delete movement ───────────────────────────────────────
 let deleteMvtId = null;
 function deleteMvt(id) {
     deleteMvtId = id;
+    document.getElementById('deleteMvtReason').value = '';
+    document.getElementById('deleteMvtError').style.display = 'none';
     document.getElementById('deleteMvtModal').classList.add('open');
 }
 function closeDeleteMvt() {
@@ -474,13 +503,29 @@ function closeDeleteMvt() {
 }
 document.getElementById('confirmDeleteMvt').addEventListener('click', async function() {
     if (!deleteMvtId) return;
-    this.disabled = true; this.textContent = 'Suppression...';
+    const reason = document.getElementById('deleteMvtReason').value.trim();
+    const err = document.getElementById('deleteMvtError');
+    err.style.display = 'none';
+    if (!reason) {
+        err.textContent = 'Le motif est obligatoire.';
+        err.style.display = 'block';
+        document.getElementById('deleteMvtReason').focus();
+        return;
+    }
+    this.disabled = true; this.textContent = 'Annulation…';
     const fd = new FormData();
     fd.append('id', deleteMvtId);
+    fd.append('reason', reason);
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/cash_delete.php', {method:'POST', body:fd});
     const data = await res.json();
     if (data.success) { window.location.reload(); }
-    else { alert(data.error || 'Erreur'); this.disabled = false; this.textContent = 'Supprimer'; }
+    else if (data.sealed) {
+        err.innerHTML = (data.error || 'Journée clôturée') +
+            '<br><em>Pour annuler un mouvement d\'une journée clôturée, une contre-écriture doit être créée. Cette fonctionnalité pour le cash sera ajoutée prochainement — contactez l\'administrateur si nécessaire.</em>';
+        err.style.display = 'block';
+        this.disabled = false; this.textContent = 'Annuler le mouvement';
+    }
+    else { err.textContent = data.error || 'Erreur'; err.style.display = 'block'; this.disabled = false; this.textContent = 'Annuler le mouvement'; }
 });
 </script>

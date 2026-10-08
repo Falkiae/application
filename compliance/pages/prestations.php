@@ -258,11 +258,17 @@ for ($i = 0; $i < 12; $i++) {
         <div class="modal-icon modal-icon-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
         </div>
-        <h3 class="modal-title">Supprimer la prestation ?</h3>
-        <p class="modal-body" id="deleteModalBody">Cette action est irréversible.</p>
+        <h3 class="modal-title">Annuler la prestation ?</h3>
+        <p class="modal-body" id="deleteModalBody">La ligne restera dans le journal mais sera marquée annulée.</p>
+        <div class="form-group" style="margin:12px 0;text-align:left;">
+            <label class="form-label" for="deleteReason">Motif <span style="color:#dc2626;">*</span></label>
+            <textarea id="deleteReason" class="form-input" rows="2" maxlength="500"
+                placeholder="Pourquoi annuler cette prestation ? (obligatoire)"></textarea>
+        </div>
+        <div id="deleteError" class="alert alert-error" style="display:none;"></div>
         <div class="modal-actions">
-            <button class="btn btn-outline" onclick="closeDeleteModal()">Annuler</button>
-            <button class="btn btn-danger" id="confirmDelete">Supprimer</button>
+            <button class="btn btn-outline" onclick="closeDeleteModal()">Fermer</button>
+            <button class="btn btn-danger" id="confirmDelete">Annuler la prestation</button>
         </div>
     </div>
 </div>
@@ -285,7 +291,9 @@ function applyFilters() {
 let deleteId = null;
 function deleteService(id, label) {
     deleteId = id;
-    document.getElementById('deleteModalBody').textContent = `Supprimer la prestation "${label}" ? Cette action est irréversible.`;
+    document.getElementById('deleteModalBody').textContent = `La prestation "${label}" sera marquée annulée (elle reste dans le journal pour la traçabilité comptable).`;
+    document.getElementById('deleteReason').value = '';
+    document.getElementById('deleteError').style.display = 'none';
     document.getElementById('deleteModal').classList.add('open');
 }
 function closeDeleteModal() {
@@ -294,19 +302,34 @@ function closeDeleteModal() {
 }
 document.getElementById('confirmDelete').addEventListener('click', async function() {
     if (!deleteId) return;
+    const reason = document.getElementById('deleteReason').value.trim();
+    const errEl = document.getElementById('deleteError');
+    errEl.style.display = 'none';
+    if (!reason) {
+        errEl.textContent = 'Le motif est obligatoire.';
+        errEl.style.display = 'block';
+        document.getElementById('deleteReason').focus();
+        return;
+    }
     this.disabled = true;
-    this.textContent = 'Suppression...';
+    this.textContent = 'Annulation…';
     const fd = new FormData();
     fd.append('id', deleteId);
+    fd.append('reason', reason);
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/prestation_delete.php', {method:'POST', body:fd});
     const data = await res.json();
     if (data.success) {
         window.location.reload();
+    } else if (data.sealed) {
+        closeDeleteModal();
+        alert((data.error || 'Journée clôturée') + '\n\nRedirection vers la page de correction : utilisez le bouton « Contrepasser ».');
+        window.location.href = 'index.php?page=prestation_edit&id=' + deleteId;
     } else {
-        alert(data.error || 'Erreur lors de la suppression');
+        errEl.textContent = data.error || 'Erreur lors de l\'annulation';
+        errEl.style.display = 'block';
         this.disabled = false;
-        this.textContent = 'Supprimer';
+        this.textContent = 'Annuler la prestation';
     }
 });
 
