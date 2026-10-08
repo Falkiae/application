@@ -2,8 +2,9 @@
 $db = getDB();
 
 $techCount = $db->query("SELECT COUNT(*) FROM technicians WHERE active=1")->fetchColumn();
-$serviceCount = $db->query("SELECT COUNT(*) FROM services")->fetchColumn();
-$thisMonthCount = $db->query("SELECT COUNT(*) FROM services WHERE strftime('%Y-%m', date) = strftime('%Y-%m', 'now')")->fetchColumn();
+// Compliance: count logical prestations (exclude counter-entries + soft-cancelled)
+$serviceCount = $db->query("SELECT COUNT(*) FROM services WHERE cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL")->fetchColumn();
+$thisMonthCount = $db->query("SELECT COUNT(*) FROM services WHERE strftime('%Y-%m', date) = strftime('%Y-%m', 'now') AND cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL")->fetchColumn();
 $typeCount = $db->query("SELECT COUNT(*) FROM cleaning_types WHERE active=1")->fetchColumn();
 $backupFiles = glob(BACKUP_PATH . '/*.sqlite') ?: [];
 rsort($backupFiles);

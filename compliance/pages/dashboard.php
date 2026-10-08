@@ -7,18 +7,34 @@ $thisMonth = date('Y-m');
 
 // Stats today
 if ($isAdm) {
-    $stmtToday = $db->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(montant),0) as total FROM services WHERE date = ?");
+    $stmtToday = $db->prepare("
+        SELECT
+            SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as cnt,
+            COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END), 0) as total
+        FROM services WHERE date = ?");
 } else {
-    $stmtToday = $db->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(montant),0) as total FROM services WHERE date = ? AND technician_id = ?");
+    $stmtToday = $db->prepare("
+        SELECT
+            SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as cnt,
+            COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END), 0) as total
+        FROM services WHERE date = ? AND technician_id = ?");
 }
 $stmtToday->execute($isAdm ? [$today] : [$today, $techId]);
 $statsToday = $stmtToday->fetch();
 
 // Stats this month
 if ($isAdm) {
-    $stmtMonth = $db->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(montant),0) as total FROM services WHERE strftime('%Y-%m', date) = ?");
+    $stmtMonth = $db->prepare("
+        SELECT
+            SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as cnt,
+            COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END), 0) as total
+        FROM services WHERE strftime('%Y-%m', date) = ?");
 } else {
-    $stmtMonth = $db->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(montant),0) as total FROM services WHERE strftime('%Y-%m', date) = ? AND technician_id = ?");
+    $stmtMonth = $db->prepare("
+        SELECT
+            SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as cnt,
+            COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END), 0) as total
+        FROM services WHERE strftime('%Y-%m', date) = ? AND technician_id = ?");
 }
 $stmtMonth->execute($isAdm ? [$thisMonth] : [$thisMonth, $techId]);
 $statsMonth = $stmtMonth->fetch();
@@ -41,16 +57,25 @@ if ($isAdm) {
     $globalCash = (float)$stmtCash->fetchColumn();
 }
 
-// Pending invoices (facture_a_faire=1 AND facture_envoyee=0)
-$invoiceWhere = "facture_a_faire=1 AND (facture_envoyee IS NULL OR facture_envoyee=0)";
+// Pending invoices (facture_a_faire=1 AND facture_envoyee=0).
+// Compliance: we query ORIGINAL rows only and use the correction's values via COALESCE
+// if the prestation has been superseded. Soft-cancelled and reversed rows are excluded.
+$invoiceWhere = "s.cancels_id IS NULL AND s.supersedes_id IS NULL AND s.cancelled_at IS NULL"
+              . " AND COALESCE(corr.facture_a_faire, s.facture_a_faire) = 1"
+              . " AND (COALESCE(corr.facture_envoyee, s.facture_envoyee) IS NULL"
+              . "      OR COALESCE(corr.facture_envoyee, s.facture_envoyee) = 0)";
 $invoiceParams = [];
 if (!$isAdm) { $invoiceWhere .= " AND s.technician_id=?"; $invoiceParams[] = $techId; }
 
 $stmtInvoices = $db->prepare("
-    SELECT s.id, s.date, s.montant, s.paiement, ct.label as type_label, t.name as tech_name, t.color as tech_color
+    SELECT s.id, s.date,
+           COALESCE(corr.montant, s.montant) as montant,
+           COALESCE(corr.paiement, s.paiement) as paiement,
+           ct.label as type_label, t.name as tech_name, t.color as tech_color
     FROM services s
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
     JOIN technicians t ON t.id = s.technician_id
+    LEFT JOIN services corr ON corr.supersedes_id = s.id
     WHERE $invoiceWhere
     ORDER BY s.date ASC
     LIMIT 10
@@ -60,7 +85,11 @@ $pendingInvoices = $stmtInvoices->fetchAll();
 $invoiceCount = count($pendingInvoices);
 
 // Count total pending (may be more than 10)
-$stmtInvCount = $db->prepare("SELECT COUNT(*) FROM services s WHERE $invoiceWhere");
+$stmtInvCount = $db->prepare("
+    SELECT COUNT(*) FROM services s
+    LEFT JOIN services corr ON corr.supersedes_id = s.id
+    WHERE $invoiceWhere
+");
 $stmtInvCount->execute($invoiceParams);
 $totalPendingInvoices = (int)$stmtInvCount->fetchColumn();
 

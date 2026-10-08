@@ -2299,3 +2299,17 @@ input[type="checkbox"]:disabled + * {
     .livre-vat-breakdown { border-color: #000 !important; }
     .livre-vat-breakdown th { background: transparent !important; color: #000 !important; border-bottom-color: #000 !important; }
 }
+
+.svc-corrected-mark { color: #78350f; font-weight: 500; font-size: .78rem; }
+
+/* Chain of counter-entries on prestation_edit */
+.chain-list { display: flex; flex-direction: column; gap: 6px; }
+.chain-step { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 6px; background: var(--gray-50); font-size: .83rem; flex-wrap: wrap; }
+.chain-step strong { color: var(--primary); font-family: ui-monospace, monospace; }
+.chain-step .num { font-weight: 600; margin-left: auto; }
+.chain-current { background: #fef3c7; border: 1px solid #fbbf24; }
+.badge-current { background: #fbbf24; color: #78350f; padding: 1px 7px; border-radius: 4px; font-size: .68rem; font-weight: 600; margin-left: 4px; }
+.btn-link-sm { color: var(--primary); font-size: .78rem; text-decoration: none; margin-left: 4px; }
+.btn-link-sm:hover { text-decoration: underline; }
+
+.history-motif { font-size: .78rem; color: #78350f; margin-top: 2px; padding-left: 4px; border-left: 2px solid #fbbf24; padding-left: 6px; }

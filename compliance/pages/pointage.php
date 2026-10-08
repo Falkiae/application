@@ -77,7 +77,9 @@ $myAgg = pointageAggregateSessions($mySessRawStmt->fetchAll());
 $myNbSessions = array_sum(array_map(fn($d) => $d['sessions'], $myAgg['days']));
 
 $myPrestStmt = $db->prepare("
-    SELECT COUNT(*) as nb, COALESCE(SUM(montant),0) as ca
+    SELECT
+        SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as nb,
+        COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END),0) as ca
     FROM services WHERE technician_id=? AND strftime('%Y-%m', date)=?
 ");
 $myPrestStmt->execute([$dashUserId, $myMonthStr]);
@@ -120,7 +122,9 @@ if ($isAdm) {
                COALESCE(sh.ca, 0) as ca
         FROM technicians t
         LEFT JOIN (
-            SELECT technician_id, COUNT(*) as nb_presta, COALESCE(SUM(montant),0) as ca
+            SELECT technician_id,
+                   SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as nb_presta,
+                   COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END),0) as ca
             FROM services WHERE strftime('%Y-%m', date)=?
             GROUP BY technician_id
         ) sh ON sh.technician_id = t.id

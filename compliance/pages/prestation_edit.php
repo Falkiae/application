@@ -62,7 +62,39 @@ $histStmt->execute([$id]);
 $history = $histStmt->fetchAll();
 
 $paiementLabels = ['cash'=>'Cash','virement'=>'Virement','qrcode'=>'QR Code','facture'=>'Sur facture'];
-$actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
+$actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé','cancel'=>'Annulé','supersede'=>'Correction créée'];
+
+// If this row is a correction/annulation, fetch the original to link in the chain.
+// If this row has been reversed, fetch the counter-entries.
+$chain = ['original' => null, 'annulation' => null, 'correction' => null];
+if ($service['supersedes_id']) {
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE id = ?");
+    $s->execute([$service['supersedes_id']]);
+    $chain['original'] = $s->fetch() ?: null;
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE cancels_id = ? LIMIT 1");
+    $s->execute([$service['supersedes_id']]);
+    $chain['annulation'] = $s->fetch() ?: null;
+    $chain['correction'] = ['id' => $service['id'], 'receipt_no' => $service['receipt_no'], 'date' => $service['date'], 'montant' => $service['montant']];
+} elseif ($service['cancels_id']) {
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE id = ?");
+    $s->execute([$service['cancels_id']]);
+    $chain['original'] = $s->fetch() ?: null;
+    $chain['annulation'] = ['id' => $service['id'], 'receipt_no' => $service['receipt_no'], 'date' => $service['date'], 'montant' => $service['montant']];
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE supersedes_id = ? LIMIT 1");
+    $s->execute([$service['cancels_id']]);
+    $chain['correction'] = $s->fetch() ?: null;
+} else {
+    // This IS the original. Look for its counter-entries.
+    $chain['original'] = ['id' => $service['id'], 'receipt_no' => $service['receipt_no'], 'date' => $service['date'], 'montant' => $service['montant']];
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE cancels_id = ? LIMIT 1");
+    $s->execute([$service['id']]);
+    $chain['annulation'] = $s->fetch() ?: null;
+    $s = $db->prepare("SELECT id, receipt_no, date, montant FROM services WHERE supersedes_id = ? LIMIT 1");
+    $s->execute([$service['id']]);
+    $chain['correction'] = $s->fetch() ?: null;
+}
+$hasChain = ($chain['annulation'] !== null)
+         || ($chain['correction'] !== null && (int)$chain['correction']['id'] !== (int)$service['id']);
 ?>
 
 <div class="edit-page">
@@ -304,6 +336,40 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
 
             <!-- Right column: history -->
             <div class="edit-history-col">
+                <?php if ($hasChain): ?>
+                <div class="section-card">
+                    <h3 class="card-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        Chaîne de contre-écritures
+                    </h3>
+                    <div class="chain-list">
+                        <?php
+                        $steps = [];
+                        if ($chain['original'])  $steps[] = ['role'=>'Originale',  'r'=>$chain['original']];
+                        if ($chain['annulation']) $steps[] = ['role'=>'Annulation', 'r'=>$chain['annulation']];
+                        if ($chain['correction'] && (int)$chain['correction']['id'] !== (int)($chain['original']['id'] ?? 0)) {
+                            $steps[] = ['role'=>'Correction', 'r'=>$chain['correction']];
+                        }
+                        foreach ($steps as $step):
+                            $r = $step['r'];
+                            $isSelf = (int)$r['id'] === (int)$service['id'];
+                        ?>
+                        <div class="chain-step <?= $isSelf ? 'chain-current' : '' ?>">
+                            <strong>#<?= htmlspecialchars($r['receipt_no']) ?></strong>
+                            — <?= $step['role'] ?>
+                            — <?= date('d/m/Y', strtotime($r['date'])) ?>
+                            — <span class="num"><?= number_format((float)$r['montant'], 2, ',', ' ') ?> €</span>
+                            <?php if ($isSelf): ?>
+                            <span class="badge-current">cette ligne</span>
+                            <?php else: ?>
+                            <a href="index.php?page=prestation_edit&id=<?= (int)$r['id'] ?>" class="btn-link-sm">voir →</a>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="section-card">
                     <h3 class="card-section-title">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -320,6 +386,8 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                                 <?php elseif ($h['action'] === 'update'): ?>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                <?php elseif ($h['action'] === 'cancel' || $h['action'] === 'supersede'): ?>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8"/></svg>
                                 <?php else: ?>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                                 <?php endif; ?>
@@ -330,10 +398,13 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                                 </div>
                                 <?php if ($h['changed_fields']):
                                     $fields = json_decode($h['changed_fields'], true) ?? [];
-                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes','technician_id'=>'Technicien'];
+                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes','technician_id'=>'Technicien','facture_envoyee'=>'Facture envoyée','vat_rate'=>'Taux TVA','photo_avant'=>'Photo avant','photo_apres'=>'Photo après'];
                                     $readable = array_map(fn($f) => $fieldLabels[$f] ?? $f, $fields);
                                 ?>
-                                <div class="history-fields">Modifié: <?= implode(', ', $readable) ?></div>
+                                <div class="history-fields">Modifié : <?= implode(', ', $readable) ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($h['reason'])): ?>
+                                <div class="history-motif"><em>Motif : <?= htmlspecialchars($h['reason']) ?></em></div>
                                 <?php endif; ?>
                                 <div class="history-date"><?= date('d/m/Y H:i', strtotime($h['created_at'])) ?></div>
                             </div>

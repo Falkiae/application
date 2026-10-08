@@ -15,7 +15,11 @@ $selectedMonth = $_GET['month'] ?? date('Y-m');
 $where = "strftime('%Y-%m', date) = ?";
 $params = [$selectedMonth];
 if (!$isAdm) { $where .= " AND technician_id = ?"; $params[] = $techId; }
-$stmt = $db->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(montant),0) as total FROM services WHERE $where");
+$stmt = $db->prepare("
+    SELECT
+        SUM(CASE WHEN cancels_id IS NULL AND supersedes_id IS NULL AND cancelled_at IS NULL THEN 1 ELSE 0 END) as cnt,
+        COALESCE(SUM(CASE WHEN cancelled_at IS NULL THEN montant ELSE 0 END), 0) as total
+    FROM services WHERE $where");
 $stmt->execute($params);
 $preview = $stmt->fetch();
 ?>

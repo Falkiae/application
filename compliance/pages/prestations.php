@@ -35,29 +35,61 @@ if ($filterType > 0) {
 $whereStr = implode(' AND ', $where);
 
 $stmt = $db->prepare("
-    SELECT s.*, t.name as tech_name, t.color as tech_color, ct.label as type_label,
-           o1.receipt_no AS cancels_receipt_no,
-           o2.receipt_no AS supersedes_receipt_no,
-           rev.receipt_no AS reversed_by_receipt
+    SELECT s.id,
+           s.receipt_no,
+           s.date,
+           s.ticket_tva,
+           s.cancelled_at,
+           s.cancelled_reason,
+           s.supersedes_id,
+           s.cancels_id,
+           -- Effective values: if this original has a correction row, use its values
+           COALESCE(corr.montant,       s.montant)       AS montant,
+           COALESCE(corr.montant_htva,  s.montant_htva)  AS montant_htva,
+           COALESCE(corr.montant_tva,   s.montant_tva)   AS montant_tva,
+           COALESCE(corr.vat_rate,      s.vat_rate)      AS vat_rate,
+           COALESCE(corr.lieu,          s.lieu)          AS lieu,
+           COALESCE(corr.paiement,      s.paiement)      AS paiement,
+           COALESCE(corr.notes,         s.notes)         AS notes,
+           COALESCE(corr.technician_id, s.technician_id) AS display_technician_id,
+           COALESCE(corr.facture_a_faire, s.facture_a_faire) AS facture_a_faire,
+           COALESCE(corr.facture_envoyee, s.facture_envoyee) AS facture_envoyee,
+           COALESCE(corr.facture_ref,    s.facture_ref)   AS facture_ref,
+           COALESCE(corr.photo_avant,    s.photo_avant)   AS photo_avant,
+           COALESCE(corr.photo_apres,    s.photo_apres)   AS photo_apres,
+           -- Correction / annulation references (for badges)
+           corr.id         AS correction_id,
+           corr.receipt_no AS correction_receipt_no,
+           corr.date       AS correction_date,
+           annul.id         AS annulation_id,
+           annul.receipt_no AS annulation_receipt_no,
+           annul.date       AS annulation_date,
+           -- Display tech / type based on effective technician_id and type_nettoyage_id
+           t.name  AS tech_name,
+           t.color AS tech_color,
+           ct.label AS type_label
     FROM services s
-    JOIN technicians t ON t.id = s.technician_id
-    JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
-    LEFT JOIN services o1  ON o1.id  = s.cancels_id
-    LEFT JOIN services o2  ON o2.id  = s.supersedes_id
-    LEFT JOIN services rev ON rev.cancels_id = s.id
-    WHERE $whereStr
+    JOIN technicians t ON t.id = COALESCE((SELECT c.technician_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1), s.technician_id)
+    JOIN cleaning_types ct ON ct.id = COALESCE((SELECT c.type_nettoyage_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1), s.type_nettoyage_id)
+    LEFT JOIN services corr  ON corr.supersedes_id = s.id
+    LEFT JOIN services annul ON annul.cancels_id   = s.id
+    WHERE s.cancels_id IS NULL AND s.supersedes_id IS NULL
+      AND $whereStr
     ORDER BY s.date DESC, s.receipt_no DESC
 ");
 $stmt->execute($params);
 $services = $stmt->fetchAll();
 
-// Totals: exclude soft-cancelled rows (never had a counter-entry).
-// Counter-entries themselves (cancels_id rows with negative montant) are included → algebraic sum correct.
+// Totals (effective values from the SQL above already):
+//  - Count = logical prestations (soft-cancelled excluded, counter-entries hidden by the WHERE)
+//  - Sum   = effective amounts (correction's montant if any, else original)
 $totalMontant = 0;
+$totalCount   = 0;
 foreach ($services as $s) {
-    if ($s['cancelled_at'] === null) $totalMontant += (float)$s['montant'];
+    if ($s['cancelled_at'] !== null) continue;  // soft-cancelled: 0 for stats
+    $totalMontant += (float)$s['montant'];
+    $totalCount   += 1;
 }
-$totalCount = count($services);
 
 // Technicians for filter (admin only)
 $technicians = [];
@@ -140,14 +172,14 @@ for ($i = 0; $i < 12; $i++) {
     <div class="service-list">
         <?php foreach ($services as $s):
             $isSoftCancelled = $s['cancelled_at'] !== null;
-            $isReversed      = $s['reversed_by_receipt'] !== null && !$isSoftCancelled;
-            $isCancellation  = $s['cancels_id'] !== null;
-            $isCorrection    = $s['supersedes_id'] !== null;
-            $cardCls = '';
-            if ($isSoftCancelled || $isReversed) $cardCls = 'svc-cancelled';
+            $hasCorrection   = $s['correction_id'] !== null;
+            $hasAnnulation   = $s['annulation_id'] !== null && !$hasCorrection;  // bare cancel
+            // The row the user should land on when clicking: correction if any, else self
+            $clickId = $hasCorrection ? (int)$s['correction_id'] : (int)$s['id'];
+            $cardCls = $isSoftCancelled ? 'svc-cancelled' : '';
         ?>
         <div class="service-card service-card-full <?= $cardCls ?>" id="sc-<?= $s['id'] ?>">
-            <div class="service-card-main" onclick="window.location='index.php?page=prestation_edit&id=<?= $s['id'] ?>'">
+            <div class="service-card-main" onclick="window.location='index.php?page=prestation_edit&id=<?= $clickId ?>'">
                 <div class="service-card-left">
                     <div class="tech-avatar tech-avatar-sm" style="background:<?= htmlspecialchars($s['tech_color']) ?>">
                         <?= strtoupper(substr($s['tech_name'], 0, 1)) ?>
@@ -163,6 +195,12 @@ for ($i = 0; $i < 12; $i++) {
                             <?= htmlspecialchars(date('d/m/Y', strtotime($s['date']))) ?>
                             · <?= $lieuLabels[$s['lieu']] ?? $s['lieu'] ?>
                             <?php if ($isAdm): ?> · <strong><?= htmlspecialchars($s['tech_name']) ?></strong><?php endif; ?>
+                            <?php if ($hasCorrection): ?>
+                            · <span class="svc-corrected-mark" title="Modifiée le <?= date('d/m/Y', strtotime($s['correction_date'])) ?> par la recette <?= htmlspecialchars($s['correction_receipt_no']) ?>">✎ Modifiée le <?= date('d/m/Y', strtotime($s['correction_date'])) ?></span>
+                            <?php endif; ?>
+                            <?php if ($hasAnnulation): ?>
+                            · <span class="svc-corrected-mark" style="color:#991b1b" title="Annulée le <?= date('d/m/Y', strtotime($s['annulation_date'])) ?> par la recette <?= htmlspecialchars($s['annulation_receipt_no']) ?>">✕ Annulée le <?= date('d/m/Y', strtotime($s['annulation_date'])) ?></span>
+                            <?php endif; ?>
                         </div>
                         <?php if ($s['notes']): ?>
                         <div class="service-notes"><?= htmlspecialchars(mb_substr($s['notes'], 0, 60)) ?><?= strlen($s['notes']) > 60 ? '…' : '' ?></div>
@@ -177,12 +215,6 @@ for ($i = 0; $i < 12; $i++) {
                             <?php endif; ?>
                             <?php if ($isSoftCancelled): ?>
                             <span class="badge badge-cancel">Annulée</span>
-                            <?php elseif ($isReversed): ?>
-                            <span class="badge badge-reversed">Contrepassée par #<?= htmlspecialchars($s['reversed_by_receipt']) ?></span>
-                            <?php elseif ($isCancellation): ?>
-                            <span class="badge badge-cancellation">Annulation de #<?= htmlspecialchars($s['cancels_receipt_no']) ?></span>
-                            <?php elseif ($isCorrection): ?>
-                            <span class="badge badge-correction">Correction de #<?= htmlspecialchars($s['supersedes_receipt_no']) ?></span>
                             <?php endif; ?>
                         </div>
                     </div>

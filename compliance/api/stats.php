@@ -15,7 +15,9 @@ if ($monthFilter < 1 || $monthFilter > 12) $monthFilter = 0;
 if (!$isAdm) $techFilter = $currentTechId;
 
 // WHERE for bar charts — full year, no month restriction
-$whereChart  = "strftime('%Y', s.date) = :year";
+// Compliance: exclude counter-entries from count stats; sum stays algebraic (includes
+// counter-entries so net totals are correct for sealed-day accounting).
+$whereChart  = "strftime('%Y', s.date) = :year AND s.cancelled_at IS NULL";
 $paramsChart = [':year' => (string)$year];
 if ($techFilter > 0) { $whereChart .= " AND s.technician_id = :tech"; $paramsChart[':tech'] = $techFilter; }
 if ($typeFilter > 0) { $whereChart .= " AND s.type_nettoyage_id = :type"; $paramsChart[':type'] = $typeFilter; }
@@ -28,8 +30,15 @@ if ($monthFilter > 0) {
     $params[':month'] = str_pad($monthFilter, 2, '0', STR_PAD_LEFT);
 }
 
-// KPI
-$kpi = $db->prepare("SELECT COUNT(*) as nb, COALESCE(SUM(montant),0) as ca, COALESCE(AVG(montant),0) as avg_ca FROM services s WHERE $where");
+// KPI — count logical prestations only (not counter-entries); sum stays algebraic.
+$kpi = $db->prepare("
+    SELECT
+        SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) as nb,
+        COALESCE(SUM(s.montant),0) as ca,
+        CASE WHEN SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) > 0
+             THEN SUM(s.montant) / SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END)
+             ELSE 0 END as avg_ca
+    FROM services s WHERE $where");
 $kpi->execute($params);
 $kpiRow = $kpi->fetch();
 
@@ -42,7 +51,7 @@ $bestMonth = $bm->fetch();
 $mStmt = $db->prepare("
     SELECT strftime('%m', s.date) as m,
            COALESCE(SUM(s.montant),0) as ca,
-           COUNT(*) as nb,
+           SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) as nb,
            COALESCE(SUM(CASE WHEN s.lieu='domicile' THEN s.montant ELSE 0 END),0) as ca_dom,
            COALESCE(SUM(CASE WHEN s.lieu='atelier'  THEN s.montant ELSE 0 END),0) as ca_atl
     FROM services s WHERE $whereChart GROUP BY m ORDER BY m
@@ -95,9 +104,12 @@ for ($i = 1; $i <= 12; $i++) {
 
 // By service type
 $tStmt = $db->prepare("
-    SELECT ct.label, COUNT(*) as nb,
+    SELECT ct.label,
+           SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) as nb,
            COALESCE(SUM(s.montant),0) as ca,
-           COALESCE(AVG(s.montant),0) as avg_ca
+           CASE WHEN SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) > 0
+                THEN SUM(s.montant) / SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END)
+                ELSE 0 END as avg_ca
     FROM services s
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
     WHERE $where
@@ -117,7 +129,9 @@ foreach ($tStmt->fetchAll() as $r) {
 
 // By payment method
 $pStmt = $db->prepare("
-    SELECT paiement, COUNT(*) as nb, COALESCE(SUM(montant),0) as ca
+    SELECT paiement,
+           SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) as nb,
+           COALESCE(SUM(montant),0) as ca
     FROM services s WHERE $where GROUP BY paiement ORDER BY ca DESC
 ");
 $pStmt->execute($params);
@@ -128,7 +142,9 @@ foreach ($pStmt->fetchAll() as $r) {
 
 // By lieu (domicile / atelier)
 $lStmt = $db->prepare("
-    SELECT lieu, COUNT(*) as nb, COALESCE(SUM(montant),0) as ca
+    SELECT lieu,
+           SUM(CASE WHEN s.cancels_id IS NULL AND s.supersedes_id IS NULL THEN 1 ELSE 0 END) as nb,
+           COALESCE(SUM(montant),0) as ca
     FROM services s WHERE $where GROUP BY lieu
 ");
 $lStmt->execute($params);
