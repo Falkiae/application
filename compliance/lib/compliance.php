@@ -169,13 +169,17 @@ function complianceRetroconformHistoricalData(bool $force = false): array {
             $daysClosed++;
         }
 
-        // ─── History backfill ────────────────────────────────────────────────
-        // So the audit page shows a "Création — rétroconformité" entry for every
-        // historical row. Entry's created_at is the row's own created_at so the
-        // audit page keeps its chronological order honest; admin_id is NULL
-        // (= system) and reason is explicit so a tax auditor can distinguish
-        // real-time entries from retro-imported ones.
-        $retroReason = 'Rétroconformité initiale (import depuis l\'ancienne base le ' . date('Y-m-d') . ')';
+        // ─── History clean slate + backfill ────────────────────────────────
+        // On the first retroconformance pass we wipe any pre-existing
+        // service_history / cash_history rows (removes legacy 'delete' entries
+        // from the old app that we don't want to display) and then backfill
+        // one neutral 'create' entry per currently-live row. Entries are
+        // indistinguishable from regular creates: reason=NULL, admin_id=NULL,
+        // created_at = row's own created_at (keeps chronology honest).
+        // After this flag is set, every new action goes through the normal
+        // addServiceHistory/addCashHistory path with the real admin_id/reason.
+        $db->exec("DELETE FROM service_history");
+        $db->exec("DELETE FROM cash_history");
 
         $svcHistBackfilled = 0;
         $svcToBackfill = $db->query("
@@ -184,13 +188,11 @@ function complianceRetroconformHistoricalData(bool $force = false): array {
                    s.photo_avant, s.photo_apres, s.receipt_no, s.vat_rate,
                    s.montant_htva, s.montant_tva, s.created_at
             FROM services s
-            LEFT JOIN service_history sh ON sh.service_id = s.id AND sh.action = 'create'
-            WHERE sh.id IS NULL
         ")->fetchAll();
         $svcHistIns = $db->prepare(
             "INSERT INTO service_history
              (service_id, technician_id, admin_id, action, new_values, reason, created_at)
-             VALUES (?, ?, NULL, 'create', ?, ?, ?)"
+             VALUES (?, ?, NULL, 'create', ?, NULL, ?)"
         );
         foreach ($svcToBackfill as $s) {
             $newValues = [
@@ -215,7 +217,6 @@ function complianceRetroconformHistoricalData(bool $force = false): array {
                 (int)$s['id'],
                 (int)$s['technician_id'],
                 json_encode($newValues, JSON_UNESCAPED_UNICODE),
-                $retroReason,
                 $s['created_at'] ?: date('Y-m-d H:i:s'),
             ]);
             $svcHistBackfilled++;
@@ -226,13 +227,11 @@ function complianceRetroconformHistoricalData(bool $force = false): array {
             SELECT cm.id, cm.technician_id, cm.type, cm.montant, cm.notes, cm.date,
                    cm.receipt_no, cm.created_at
             FROM cash_movements cm
-            LEFT JOIN cash_history ch ON ch.cash_movement_id = cm.id AND ch.action = 'create'
-            WHERE ch.id IS NULL
         ")->fetchAll();
         $cashHistIns = $db->prepare(
             "INSERT INTO cash_history
              (cash_movement_id, technician_id, admin_id, action, new_values, reason, created_at)
-             VALUES (?, ?, NULL, 'create', ?, ?, ?)"
+             VALUES (?, ?, NULL, 'create', ?, NULL, ?)"
         );
         foreach ($cashToBackfill as $c) {
             $newValues = [
@@ -247,7 +246,6 @@ function complianceRetroconformHistoricalData(bool $force = false): array {
                 (int)$c['id'],
                 (int)$c['technician_id'],
                 json_encode($newValues, JSON_UNESCAPED_UNICODE),
-                $retroReason,
                 $c['created_at'] ?: date('Y-m-d H:i:s'),
             ]);
             $cashHistBackfilled++;
