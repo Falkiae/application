@@ -2221,3 +2221,36 @@ select.form-input, .form-select {
 /* Compliance badges in prestations/cash lists */
 .svc-receipt-no { display:inline-block; margin-left:8px; font-family:ui-monospace, monospace; font-size:.72rem; color:var(--primary); font-weight:600; }
 .livre-receipt-badge { display:inline-block; background:#eef2ff; color:#3730a3; font-family:ui-monospace, monospace; padding:6px 12px; border-radius:6px; font-size:.85rem; margin-bottom:10px; }
+
+/* Locked accounting fields on sealed-day prestation edit */
+.locked-fields-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff7ed;
+    color: #78350f;
+    border: 1px solid #fdba74;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: .82rem;
+    margin: 0 0 14px;
+}
+.locked-fields-note svg { flex-shrink: 0; }
+
+.form-input:disabled,
+.form-select:disabled,
+.form-input[readonly] {
+    background: var(--gray-50) !important;
+    color: var(--gray-500) !important;
+    cursor: not-allowed;
+}
+input[type="radio"]:disabled + *,
+input[type="checkbox"]:disabled + * {
+    opacity: .5;
+    cursor: not-allowed;
+}
+.radio-group input:disabled,
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: .5;
+    cursor: not-allowed;
+}

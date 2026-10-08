@@ -108,6 +108,21 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
         <input type="hidden" name="photo_avant_path" id="editPhotoAvantPath" value="<?= htmlspecialchars($service['photo_avant'] ?? '') ?>">
         <input type="hidden" name="photo_apres_path" id="editPhotoApresPath" value="<?= htmlspecialchars($service['photo_apres'] ?? '') ?>">
         <input type="hidden" name="facture_envoyee" id="editFactureEnvoyee" value="<?= (int)($service['facture_envoyee'] ?? 0) ?>">
+        <?php
+        // On a sealed day, accounting fields are locked (disabled). We add hidden mirrors
+        // with the same `name` so the current values still reach the API — the only
+        // way to change them is via « Contrepasser » (counter-entry).
+        $lock = $sealed ? ' disabled' : '';
+        if ($sealed): ?>
+        <input type="hidden" name="date" value="<?= htmlspecialchars($service['date']) ?>">
+        <input type="hidden" name="technician_id" value="<?= (int)$service['technician_id'] ?>">
+        <input type="hidden" name="type_nettoyage_id" value="<?= (int)$service['type_nettoyage_id'] ?>">
+        <input type="hidden" name="lieu" value="<?= htmlspecialchars($service['lieu']) ?>">
+        <input type="hidden" name="ticket_tva" value="<?= (int)$service['ticket_tva'] ?>">
+        <input type="hidden" name="facture_a_faire" value="<?= (int)$service['facture_a_faire'] ?>">
+        <input type="hidden" name="paiement" value="<?= htmlspecialchars($service['paiement']) ?>">
+        <input type="hidden" name="montant" value="<?= htmlspecialchars($service['montant']) ?>">
+        <?php endif; ?>
 
         <div class="edit-grid">
             <!-- Left column: form -->
@@ -115,14 +130,21 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                 <div class="section-card">
                     <h3 class="card-section-title">Informations</h3>
 
+                    <?php if ($sealed): ?>
+                    <div class="locked-fields-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Champs comptables verrouillés (journée clôturée). Pour corriger un champ comptable (montant, date, paiement…), utilisez le bouton <strong>Contrepasser</strong> en bas de page.
+                    </div>
+                    <?php endif; ?>
+
                     <div class="form-group">
                         <label class="form-label">Date</label>
-                        <input type="date" name="date" class="form-input" value="<?= htmlspecialchars($service['date']) ?>" required>
+                        <input type="date" <?= $sealed ? '' : 'name="date"' ?> class="form-input" value="<?= htmlspecialchars($service['date']) ?>"<?= $lock ?> <?= $sealed ? '' : 'required' ?>>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Technicien</label>
-                        <select name="technician_id" class="form-select" required>
+                        <select <?= $sealed ? '' : 'name="technician_id"' ?> class="form-select"<?= $lock ?> <?= $sealed ? '' : 'required' ?>>
                             <?php foreach ($technicians as $t): ?>
                             <option value="<?= $t['id'] ?>" <?= $t['id'] == $service['technician_id'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($t['name']) ?>
@@ -133,7 +155,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
 
                     <div class="form-group">
                         <label class="form-label">Type de nettoyage</label>
-                        <select name="type_nettoyage_id" class="form-select" required>
+                        <select <?= $sealed ? '' : 'name="type_nettoyage_id"' ?> class="form-select"<?= $lock ?> <?= $sealed ? '' : 'required' ?>>
                             <?php foreach ($cleaningTypes as $ct): ?>
                             <option value="<?= $ct['id'] ?>" <?= $ct['id'] == $service['type_nettoyage_id'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($ct['label']) ?>
@@ -146,10 +168,10 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                         <label class="form-label">Lieu</label>
                         <div class="radio-group">
                             <label class="radio-label">
-                                <input type="radio" name="lieu" value="domicile" <?= $service['lieu']==='domicile'?'checked':'' ?>> Domicile
+                                <input type="radio" <?= $sealed ? '' : 'name="lieu"' ?> value="domicile" <?= $service['lieu']==='domicile'?'checked':'' ?><?= $lock ?>> Domicile
                             </label>
                             <label class="radio-label">
-                                <input type="radio" name="lieu" value="atelier" <?= $service['lieu']==='atelier'?'checked':'' ?>> Atelier
+                                <input type="radio" <?= $sealed ? '' : 'name="lieu"' ?> value="atelier" <?= $service['lieu']==='atelier'?'checked':'' ?><?= $lock ?>> Atelier
                             </label>
                         </div>
                     </div>
@@ -158,14 +180,14 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                         <div class="form-group">
                             <label class="form-label">Ticket TVA</label>
                             <label class="toggle-switch">
-                                <input type="checkbox" name="ticket_tva" value="1" id="editTva" <?= $service['ticket_tva']?'checked':'' ?>>
+                                <input type="checkbox" <?= $sealed ? '' : 'name="ticket_tva"' ?> value="1" id="editTva" <?= $service['ticket_tva']?'checked':'' ?><?= $lock ?>>
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Facture à faire</label>
                             <label class="toggle-switch">
-                                <input type="checkbox" name="facture_a_faire" value="1" id="editFacture" <?= $service['facture_a_faire']?'checked':'' ?>>
+                                <input type="checkbox" <?= $sealed ? '' : 'name="facture_a_faire"' ?> value="1" id="editFacture" <?= $service['facture_a_faire']?'checked':'' ?><?= $lock ?>>
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
@@ -185,7 +207,7 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                         <div class="radio-group radio-group-payment">
                             <?php foreach ($paiementLabels as $val => $label): ?>
                             <label class="radio-badge radio-badge-<?= $val ?>">
-                                <input type="radio" name="paiement" value="<?= $val ?>" <?= $service['paiement']===$val?'checked':'' ?>>
+                                <input type="radio" <?= $sealed ? '' : 'name="paiement"' ?> value="<?= $val ?>" <?= $service['paiement']===$val?'checked':'' ?><?= $lock ?>>
                                 <?= $label ?>
                             </label>
                             <?php endforeach; ?>
@@ -195,8 +217,8 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                     <div class="form-group">
                         <label class="form-label">Montant (€)</label>
                         <div class="amount-input-wrapper">
-                            <input type="number" name="montant" class="form-input amount-input"
-                                   value="<?= $service['montant'] ?>" min="0" step="0.01" required>
+                            <input type="number" <?= $sealed ? '' : 'name="montant"' ?> class="form-input amount-input"
+                                   value="<?= $service['montant'] ?>" min="0" step="0.01"<?= $lock ?> <?= $sealed ? '' : 'required' ?>>
                             <span class="amount-currency">€</span>
                         </div>
                     </div>
@@ -252,22 +274,26 @@ $actionLabels = ['create'=>'Créé','update'=>'Modifié','delete'=>'Supprimé'];
                 <?php if (!$isCancelled && !$reversedByReceipt): ?>
                 <div class="form-group" style="border-top:1px solid var(--gray-200); padding-top:14px; margin-top:14px;">
                     <label class="form-label" for="editReason">
-                        Motif de la modification <span style="color:#dc2626;">*</span>
+                        <?= $sealed
+                            ? 'Motif de la modification <span style="color:var(--gray-500);font-weight:400">(notes/photos uniquement)</span>'
+                            : 'Motif de la modification' ?>
+                        <span style="color:#dc2626;">*</span>
                     </label>
                     <textarea id="editReason" name="reason" class="form-input" rows="2" maxlength="500"
-                        placeholder="Expliquez brièvement la correction apportée (obligatoire pour l'audit comptable)"></textarea>
+                        placeholder="<?= $sealed
+                            ? 'Expliquez la correction apportée aux notes/photos (obligatoire)'
+                            : 'Expliquez brièvement la correction apportée (obligatoire pour l\'audit comptable)' ?>"></textarea>
                 </div>
                 <?php endif; ?>
 
                 <div class="edit-actions">
                     <a href="index.php?page=prestations" class="btn btn-outline">Retour</a>
                     <?php if (!$isCancelled && !$reversedByReceipt): ?>
-                    <button type="button" class="btn btn-primary" onclick="saveEdit(this)"
-                        <?= $sealed ? 'title="Journée clôturée — seules les notes/photos seront sauvegardées"' : '' ?>>
-                        Enregistrer les modifications
+                    <button type="button" class="btn btn-primary" onclick="saveEdit(this)">
+                        <?= $sealed ? 'Enregistrer notes / photos' : 'Enregistrer les modifications' ?>
                     </button>
                     <?php if ($sealed): ?>
-                    <button type="button" class="btn btn-warning" onclick="openReverseModal('supersede')">Contrepasser (corriger)</button>
+                    <button type="button" class="btn btn-warning" onclick="openReverseModal('supersede')" title="Corriger les champs comptables via une contre-écriture">Contrepasser (champs comptables)</button>
                     <button type="button" class="btn btn-danger" onclick="openReverseModal('cancel')">Annuler cette prestation</button>
                     <?php else: ?>
                     <button type="button" class="btn btn-danger" onclick="openDeleteModal()">Supprimer</button>
@@ -339,14 +365,13 @@ async function saveEdit(btn) {
         return;
     }
 
-    // Handle checkbox -> hidden fields
+    const fd = new FormData(form);
+
+    // Handle checkbox -> 0 when unchecked (only when the checkbox is editable, i.e. not sealed)
     const tva = document.getElementById('editTva');
     const facture = document.getElementById('editFacture');
-
-    const fd = new FormData(form);
-    // Ensure unchecked checkboxes send 0
-    if (!tva.checked) fd.set('ticket_tva', '0');
-    if (!facture.checked) fd.set('facture_a_faire', '0');
+    if (tva && !tva.disabled && !tva.checked) fd.set('ticket_tva', '0');
+    if (facture && !facture.disabled && !facture.checked) fd.set('facture_a_faire', '0');
     fd.set('reason', reason);
 
     btn.disabled = true;
