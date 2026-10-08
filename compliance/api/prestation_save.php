@@ -32,6 +32,14 @@ $paiement = trim($_POST['paiement'] ?? '');
 $factureAFaire = isset($_POST['facture_a_faire']) ? (int)$_POST['facture_a_faire'] : 0;
 $montant = (float)($_POST['montant'] ?? 0);
 $notes = trim($_POST['notes'] ?? '');
+$factureRef  = trim($_POST['facture_ref']  ?? '') ?: null;
+$factureDate = trim($_POST['facture_date'] ?? '') ?: null;
+if ($factureDate !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $factureDate)) {
+    jsonResponse(['error' => 'Date de facture invalide'], 400);
+}
+if ($factureRef !== null && strlen($factureRef) > 50) {
+    jsonResponse(['error' => 'Numéro de facture trop long (max 50 caractères)'], 400);
+}
 $photoAvant = trim($_POST['photo_avant_path'] ?? '');
 $photoApres = trim($_POST['photo_apres_path'] ?? '');
 $factureEnvoyee = isset($_POST['facture_envoyee']) ? (int)$_POST['facture_envoyee'] : 0;
@@ -70,12 +78,13 @@ if ($action === 'create') {
     try {
         $receiptNo = complianceAllocReceiptNo('services', $year);
         $db->prepare("
-            INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes, receipt_no, vat_rate, montant_htva, montant_tva)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes, receipt_no, vat_rate, montant_htva, montant_tva, facture_ref, facture_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ")->execute([
             $assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
             sanitizePhotoPath($photoAvant), sanitizePhotoPath($photoApres), $notes ?: null,
-            $receiptNo, $vatRate, $split['htva'], $split['tva']
+            $receiptNo, $vatRate, $split['htva'], $split['tva'],
+            $factureRef, $factureDate
         ]);
         $newId = (int)$db->lastInsertId();
         $db->commit();
@@ -93,6 +102,7 @@ if ($action === 'create') {
         'technician_id'=>$assignedTechId,'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
         'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'facture_envoyee'=>$factureEnvoyee,
+        'facture_ref'=>$factureRef,'facture_date'=>$factureDate,
         'montant'=>$montant,'notes'=>$notes,
         'photo_avant'=>sanitizePhotoPath($photoAvant),'photo_apres'=>sanitizePhotoPath($photoApres),
         'receipt_no'=>$receiptNo,'vat_rate'=>$vatRate,
@@ -156,25 +166,28 @@ if ($action === 'create') {
         'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'facture_envoyee'=>$factureEnvoyee,'montant'=>$montant,'notes'=>$notes,
         'photo_avant'=>$newPhotoAvant,'photo_apres'=>$newPhotoApres,
-        'vat_rate'=>$vatRate,'montant_htva'=>$split['htva'],'montant_tva'=>$split['tva']
+        'vat_rate'=>$vatRate,'montant_htva'=>$split['htva'],'montant_tva'=>$split['tva'],
+        'facture_ref'=>$factureRef,'facture_date'=>$factureDate
     ];
     $oldValues = [
         'technician_id'=>$old['technician_id'],'date'=>$old['date'],'type_nettoyage_id'=>$old['type_nettoyage_id'],'lieu'=>$old['lieu'],
         'ticket_tva'=>$old['ticket_tva'],'paiement'=>$old['paiement'],'facture_a_faire'=>$old['facture_a_faire'],
         'facture_envoyee'=>$old['facture_envoyee'] ?? 0,'montant'=>$old['montant'],'notes'=>$old['notes'],
         'photo_avant'=>$old['photo_avant'],'photo_apres'=>$old['photo_apres'],
-        'vat_rate'=>$old['vat_rate'],'montant_htva'=>$old['montant_htva'],'montant_tva'=>$old['montant_tva']
+        'vat_rate'=>$old['vat_rate'],'montant_htva'=>$old['montant_htva'],'montant_tva'=>$old['montant_tva'],
+        'facture_ref'=>$old['facture_ref'] ?? null,'facture_date'=>$old['facture_date'] ?? null
     ];
 
     // receipt_no is IMMUTABLE and never part of the SET list.
     $db->prepare("
         UPDATE services SET technician_id=?, date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, paiement=?,
         facture_a_faire=?, facture_envoyee=?, montant=?, photo_avant=?, photo_apres=?, notes=?,
-        vat_rate=?, montant_htva=?, montant_tva=?, updated_at=datetime('now','localtime')
+        vat_rate=?, montant_htva=?, montant_tva=?, facture_ref=?, facture_date=?,
+        updated_at=datetime('now','localtime')
         WHERE id=?
     ")->execute([$assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
                  $newPhotoAvant, $newPhotoApres, $notes ?: null,
-                 $vatRate, $split['htva'], $split['tva'],
+                 $vatRate, $split['htva'], $split['tva'], $factureRef, $factureDate,
                  $id]);
 
     $stmt = $db->prepare("SELECT label FROM cleaning_types WHERE id=?");

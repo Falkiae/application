@@ -9,6 +9,14 @@ $year   = max(2020, min(2030, (int)($_GET['year']  ?? date('Y'))));
 $month  = max(1,    min(12,   (int)($_GET['month'] ?? date('n'))));
 $qtr    = max(1,    min(4,    (int)($_GET['qtr']   ?? ceil(date('n') / 3))));
 
+// Facture tab — strict livre de recettes = "sans" (default); facturier = "avec"; "tout" for cross-check
+$tab = $_GET['tab'] ?? 'sans';
+if (!in_array($tab, ['sans', 'avec', 'tout'], true)) $tab = 'sans';
+
+// Lieu filter — purely operational, no legal impact
+$lieuFilter = $_GET['lieu'] ?? 'tous';
+if (!in_array($lieuFilter, ['tous', 'atelier', 'domicile'], true)) $lieuFilter = 'tous';
+
 $monthNames = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // Date range for the SELECT
@@ -27,6 +35,35 @@ if ($period === 'month') {
     $periodLabel = "Année $year";
 }
 
+$tabLabels = [
+    'sans' => 'Livre de recettes',
+    'avec' => 'Facturier de sortie',
+    'tout' => 'Journal mensuel complet',
+];
+$tabSubtitles = [
+    'sans' => 'Opérations sans facture (AR n°1 art. 15)',
+    'avec' => 'Opérations avec facture (facturier de sortie — AR n°1 art. 14 §2 2°)',
+    'tout' => 'Toutes les opérations (vérification croisée)',
+];
+$documentTitle = $tabLabels[$tab];
+$documentSubtitle = $tabSubtitles[$tab];
+
+// Build the WHERE clause based on filters
+// "Avec facture" = paiement='facture' OR facture_a_faire=1 OR facture_envoyee=1
+// "Sans facture" = everything else (strict livre de recettes)
+$where = ["s.date >= ?", "s.date < ?"];
+$params = [$start, $end];
+if ($tab === 'sans') {
+    $where[] = "s.paiement != 'facture' AND COALESCE(s.facture_a_faire,0) = 0 AND COALESCE(s.facture_envoyee,0) = 0";
+} elseif ($tab === 'avec') {
+    $where[] = "(s.paiement = 'facture' OR s.facture_a_faire = 1 OR s.facture_envoyee = 1)";
+}
+if ($lieuFilter !== 'tous') {
+    $where[] = "s.lieu = ?";
+    $params[] = $lieuFilter;
+}
+$whereStr = implode(' AND ', $where);
+
 // Company identity
 $company = [
     'name'    => getSetting('company_name'),
@@ -39,7 +76,7 @@ $company = [
 ];
 $identityIncomplete = empty($company['name']) || empty($company['bce']) || empty($company['vat']);
 
-// Fetch rows in the period, ordered chronologically
+// Fetch rows in the period + tab + lieu, ordered chronologically
 $stmt = $db->prepare("
     SELECT s.id, s.receipt_no, s.date, s.technician_id, s.lieu, s.ticket_tva, s.paiement,
            s.facture_a_faire, s.facture_envoyee, s.facture_ref, s.facture_date,
@@ -54,10 +91,10 @@ $stmt = $db->prepare("
     JOIN cleaning_types ct ON ct.id = s.type_nettoyage_id
     LEFT JOIN services o1 ON o1.id = s.cancels_id
     LEFT JOIN services o2 ON o2.id = s.supersedes_id
-    WHERE s.date >= ? AND s.date < ?
+    WHERE $whereStr
     ORDER BY s.date ASC, s.receipt_no ASC
 ");
-$stmt->execute([$start, $end]);
+$stmt->execute($params);
 $rows = $stmt->fetchAll();
 
 // Build "reversed_by" map so originals can show their reversal badge
@@ -141,6 +178,8 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
     <div class="livre-toolbar no-print">
         <form method="GET" class="livre-filters">
             <input type="hidden" name="page" value="admin/livre_recettes">
+            <input type="hidden" name="tab"  value="<?= htmlspecialchars($tab) ?>">
+            <input type="hidden" name="lieu" value="<?= htmlspecialchars($lieuFilter) ?>">
             <select name="period">
                 <option value="month"   <?= $period === 'month'   ? 'selected' : '' ?>>Mensuel</option>
                 <option value="quarter" <?= $period === 'quarter' ? 'selected' : '' ?>>Trimestriel</option>
@@ -164,6 +203,11 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                 <option value="<?= $y ?>" <?= $y == $year ? 'selected' : '' ?>><?= $y ?></option>
                 <?php endfor; ?>
             </select>
+            <select name="lieu" onchange="this.form.submit()" title="Filtrer par lieu (ne modifie pas les totaux légaux)">
+                <option value="tous"     <?= $lieuFilter === 'tous'     ? 'selected' : '' ?>>Tous lieux</option>
+                <option value="atelier"  <?= $lieuFilter === 'atelier'  ? 'selected' : '' ?>>Atelier uniquement</option>
+                <option value="domicile" <?= $lieuFilter === 'domicile' ? 'selected' : '' ?>>Domicile uniquement</option>
+            </select>
             <button type="submit" class="btn btn-sm">Afficher</button>
         </form>
         <div class="livre-actions">
@@ -172,6 +216,25 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
             <?php endif; ?>
             <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">Imprimer / PDF</button>
         </div>
+    </div>
+
+    <!-- Tabs: Sans facture (livre officiel) / Avec facture (facturier) / Tout -->
+    <div class="livre-tabs no-print">
+        <?php
+        $tabQS = fn($t) => '?' . http_build_query(array_merge($_GET, ['page' => 'admin/livre_recettes', 'tab' => $t]));
+        ?>
+        <a href="<?= htmlspecialchars($tabQS('sans')) ?>" class="livre-tab <?= $tab === 'sans' ? 'active' : '' ?>">
+            <span class="livre-tab-title">Sans facture</span>
+            <span class="livre-tab-sub">Livre de recettes</span>
+        </a>
+        <a href="<?= htmlspecialchars($tabQS('avec')) ?>" class="livre-tab <?= $tab === 'avec' ? 'active' : '' ?>">
+            <span class="livre-tab-title">Avec facture</span>
+            <span class="livre-tab-sub">Facturier de sortie</span>
+        </a>
+        <a href="<?= htmlspecialchars($tabQS('tout')) ?>" class="livre-tab <?= $tab === 'tout' ? 'active' : '' ?>">
+            <span class="livre-tab-title">Tout</span>
+            <span class="livre-tab-sub">Vue combinée (cross-check)</span>
+        </a>
     </div>
 
     <!-- Printable area -->
@@ -187,8 +250,9 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                 <?php if ($company['phone']):    ?><div><?= htmlspecialchars($company['phone']) ?></div><?php endif; ?>
             </div>
             <div class="livre-title">
-                <h2>Livre de recettes</h2>
-                <div class="livre-period"><?= htmlspecialchars($periodLabel) ?></div>
+                <h2><?= htmlspecialchars($documentTitle) ?></h2>
+                <div class="livre-subtitle"><?= htmlspecialchars($documentSubtitle) ?></div>
+                <div class="livre-period"><?= htmlspecialchars($periodLabel) ?><?php if ($lieuFilter !== 'tous'): ?> — <?= $lieuFilter === 'atelier' ? 'Atelier uniquement' : 'Domicile uniquement' ?><?php endif; ?></div>
                 <div class="livre-gendate">Édité le <?= date('d/m/Y H:i') ?></div>
             </div>
         </header>
@@ -247,9 +311,10 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                     } else {
                         $statusBadge = '<span class="badge-active">Actif</span>';
                     }
+                    // Description: type + lieu + tech only. Notes are internal, not for the legal book.
+                    // The motif of correction/cancellation (if any) appears in a dedicated sub-row below.
                     $description = htmlspecialchars($r['type_label']) . ' — ' . ($r['lieu'] === 'domicile' ? 'Domicile' : 'Atelier')
                         . ' (' . htmlspecialchars($r['tech_name']) . ')';
-                    if ($r['notes']) $description .= ' — <small>' . htmlspecialchars(mb_substr($r['notes'], 0, 80)) . '</small>';
                 ?>
                 <tr class="<?= $cls ?>">
                     <td class="receipt-no"><?= htmlspecialchars($r['receipt_no']) ?></td>

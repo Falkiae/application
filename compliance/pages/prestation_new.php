@@ -182,19 +182,35 @@ $today = date('Y-m-d');
             </div>
             <div class="toggle-choice">
                 <label class="toggle-option">
-                    <input type="radio" name="facture_a_faire" value="1">
+                    <input type="radio" name="facture_a_faire" value="1" id="factureAFaireOui">
                     <div class="toggle-card">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
                         <span>Oui, facture à faire</span>
                     </div>
                 </label>
                 <label class="toggle-option">
-                    <input type="radio" name="facture_a_faire" value="0" checked>
+                    <input type="radio" name="facture_a_faire" value="0" id="factureAFaireNon" checked>
                     <div class="toggle-card">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                         <span>Non, pas de facture</span>
                     </div>
                 </label>
+            </div>
+            <!-- Détails facture externe — visibles si Oui ou si paiement=facture -->
+            <div id="factureDetailsBlock" style="display:none; margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-200);">
+                <p class="step-desc" style="font-size:.82rem; color:var(--gray-500); margin-bottom:10px;">
+                    Si tu as déjà le numéro de facture (émise dans Billit, Horus…), tu peux le saisir maintenant. Sinon, laisse vide et complète plus tard depuis la page édition.
+                </p>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label" for="factureRef">Numéro de facture externe <span style="color:var(--gray-400); font-weight:400">(optionnel)</span></label>
+                        <input type="text" name="facture_ref" id="factureRef" class="form-input" maxlength="50" placeholder="Ex : F2026-123">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="factureDate">Date de la facture <span style="color:var(--gray-400); font-weight:400">(optionnel)</span></label>
+                        <input type="date" name="facture_date" id="factureDate" class="form-input">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -260,3 +276,23 @@ $today = date('Y-m-d');
         </div>
     </form>
 </div>
+
+<script>
+// Toggle facture details block based on facture_a_faire radio AND paiement=facture.
+(function () {
+    const block = document.getElementById('factureDetailsBlock');
+    if (!block) return;
+    function refresh() {
+        const oui = document.getElementById('factureAFaireOui');
+        const paiementFacture = document.querySelector('input[name="paiement"][value="facture"]:checked');
+        const show = (oui && oui.checked) || !!paiementFacture;
+        block.style.display = show ? '' : 'none';
+    }
+    document.querySelectorAll('input[name="facture_a_faire"], input[name="paiement"]').forEach(el => {
+        el.addEventListener('change', refresh);
+    });
+    // Also refresh when the wizard step appears (defensive)
+    document.addEventListener('wizard-step-shown', refresh);
+    refresh();
+})();
+</script>

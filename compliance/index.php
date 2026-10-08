@@ -76,7 +76,7 @@ $pageTitle = match($page) {
     'admin/historique'   => 'Historique',
     'admin/pointage_historique' => 'Historique pointages',
     'admin/entreprise'   => 'Fiche entreprise',
-    'admin/livre_recettes' => 'Livre de recettes',
+    'admin/livre_recettes' => 'Journal mensuel',
     'admin/import_prod'  => 'Importer la base de production',
     default              => 'Keepnew'
 };

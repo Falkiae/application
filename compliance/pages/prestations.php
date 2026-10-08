@@ -211,7 +211,7 @@ for ($i = 0; $i < 12; $i++) {
                             <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
                             <span class="badge badge-invoice">Facture à faire</span>
                             <?php elseif ($s['facture_envoyee']): ?>
-                            <span class="badge badge-invoice-sent">Facture envoyée</span>
+                            <span class="badge badge-invoice-sent">Facture envoyée<?php if (!empty($s['facture_ref'])): ?> · <?= htmlspecialchars($s['facture_ref']) ?><?php endif; ?></span>
                             <?php endif; ?>
                             <?php if ($isSoftCancelled): ?>
                             <span class="badge badge-cancel">Annulée</span>

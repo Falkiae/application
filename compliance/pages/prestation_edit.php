@@ -224,13 +224,26 @@ $hasChain = ($chain['annulation'] !== null)
                             </label>
                         </div>
                     </div>
-                    <?php if ($service['facture_a_faire']): ?>
+                    <?php if ($service['facture_a_faire'] || $service['paiement'] === 'facture'): ?>
                     <div class="form-group" id="factureEnvoyeeRow">
                         <label class="form-label">Facture envoyée</label>
                         <label class="toggle-switch">
                             <input type="checkbox" id="editFactureEnvoyeeChk" <?= ($service['facture_envoyee'] ?? 0) ? 'checked' : '' ?> onchange="document.getElementById('editFactureEnvoyee').value=this.checked?1:0">
                             <span class="toggle-slider"></span>
                         </label>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;" id="factureRefRow">
+                        <div class="form-group">
+                            <label class="form-label" for="editFactureRef">Numéro de facture externe <span style="color:var(--gray-400);font-weight:400">(optionnel)</span></label>
+                            <input type="text" name="facture_ref" id="editFactureRef" class="form-input" maxlength="50"
+                                   value="<?= htmlspecialchars($service['facture_ref'] ?? '') ?>"
+                                   placeholder="Ex : F2026-123"<?= $lock ? ' readonly' : '' ?>>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="editFactureDate">Date de la facture <span style="color:var(--gray-400);font-weight:400">(optionnel)</span></label>
+                            <input type="date" name="facture_date" id="editFactureDate" class="form-input"
+                                   value="<?= htmlspecialchars($service['facture_date'] ?? '') ?>"<?= $lock ? ' readonly' : '' ?>>
+                        </div>
                     </div>
                     <?php endif; ?>
 
