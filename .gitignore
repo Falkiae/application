@@ -1,8 +1,11 @@
 data/
 backups/
 backups_compliance/
+backups_sync/
 uploads/
 compliance/uploads/
+compliance-sync/uploads/
+compliance-sync/config_secrets.php
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
