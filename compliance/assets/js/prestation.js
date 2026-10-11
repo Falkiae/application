@@ -11,18 +11,23 @@ function selectedTypeRequiresTva() {
     return el ? el.dataset.requiresTva === '1' : false;
 }
 
-function updateTicketTva() {
-    const hidden = document.getElementById('ticketTvaHidden');
-    if (hidden) hidden.value = selectedTypeRequiresTva() ? '1' : '0';
-}
-
-function shouldShowTvaReminder() {
+function ticketTvaRequired() {
     if (!selectedTypeRequiresTva()) return false;
+    // Une facture couvre déjà la TVA : pas de ticket requis dans ce cas
     const paiement = document.querySelector('input[name="paiement"]:checked')?.value;
     if (paiement === 'facture') return false;
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
     if (facture === '1') return false;
     return true;
+}
+
+function updateTicketTva() {
+    const hidden = document.getElementById('ticketTvaHidden');
+    if (hidden) hidden.value = ticketTvaRequired() ? '1' : '0';
+}
+
+function shouldShowTvaReminder() {
+    return ticketTvaRequired();
 }
 
 function setFactureOui(checked) {
@@ -147,6 +152,7 @@ function setAmount(val) {
 }
 
 function buildSummary() {
+    updateTicketTva(); // recalcule selon type + paiement/facture
     const date = document.getElementById('serviceDate')?.value || '';
     const typeEl = document.querySelector('input[name="type_nettoyage_id"]:checked');
     const typeLabel = typeEl?.parentElement?.querySelector('span')?.textContent || '';
@@ -155,6 +161,10 @@ function buildSummary() {
     const tvaValue = document.getElementById('ticketTvaHidden')?.value || '0';
     const paiement = document.querySelector('input[name="paiement"]:checked')?.value || '';
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
+    let tvaLabel;
+    if (tvaValue === '1') tvaLabel = 'Oui (obligatoire)';
+    else if (requiresTva) tvaLabel = 'Non (couvert par facture)';
+    else tvaLabel = 'Non (non requis)';
     const montant = document.getElementById('montantInput')?.value || '0';
     const notes = document.getElementById('notesInput')?.value || '';
     const techSelect = document.querySelector('select[name="technician_id"]');
@@ -179,7 +189,7 @@ function buildSummary() {
         <div class="summary-row"><span>Lieu</span><strong>${lieuLabel}</strong></div>
         <div class="summary-row"><span>Photo avant</span><strong>${photoAvant}</strong></div>
         <div class="summary-row"><span>Photo après</span><strong>${photoApres}</strong></div>
-        <div class="summary-row"><span>Ticket TVA</span><strong>${tvaValue === '1' ? 'Oui (obligatoire)' : 'Non (non requis)'}</strong></div>
+        <div class="summary-row"><span>Ticket TVA</span><strong>${tvaLabel}</strong></div>
         <div class="summary-row"><span>Paiement</span><strong>${paiementLabels[paiement] || paiement}</strong></div>
         <div class="summary-row"><span>Facture à faire</span><strong>${facture === '1' ? 'Oui' : 'Non'}</strong></div>
         <div class="summary-row summary-row-total"><span>Montant</span><strong>${parseFloat(montant).toFixed(2).replace('.',',')} €</strong></div>
