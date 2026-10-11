@@ -1862,6 +1862,63 @@ select.form-input, .form-select {
 }
 .facture-auto-notice svg { flex-shrink: 0; width: 18px; height: 18px; }
 
+/* TVA vehicle hint (step 4 - info bleue) */
+.tva-vehicle-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: .875rem;
+  font-weight: 500;
+}
+.tva-vehicle-hint svg { flex-shrink: 0; width: 18px; height: 18px; }
+
+/* TVA missing warning (step 9 - warning orange) */
+.tva-missing-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  color: #92400e;
+  font-size: .875rem;
+  font-weight: 500;
+  animation: tva-pulse 2s ease-in-out 3;
+}
+.tva-missing-warning svg { flex-shrink: 0; width: 24px; height: 24px; stroke: #f59e0b; }
+
+@keyframes tva-pulse {
+  0%, 100% { border-color: #f59e0b; }
+  50% { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+}
+
+/* Summary row warning highlight */
+.summary-row-warn {
+  background: #fef3c7;
+  margin: 0 -16px;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+.summary-row-warn strong { color: #dc2626; }
+
+/* Badge TVA requis (admin types) */
+.badge-tva-req {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: .72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 /* ── Statistics page ── */
 .stats-page { display: flex; flex-direction: column; gap: 20px; }
 

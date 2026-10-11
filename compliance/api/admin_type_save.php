@@ -19,10 +19,11 @@ if (isset($_POST['active']) && $id) {
 // Save type
 $label = trim($_POST['label'] ?? '');
 if (!$label || strlen($label) > 100) jsonResponse(['error' => 'Libellé invalide'], 400);
+$requiresTva = isset($_POST['requires_tva_ticket']) ? (int)$_POST['requires_tva_ticket'] : 1;
 
 if ($id) {
     try {
-        $db->prepare("UPDATE cleaning_types SET label=? WHERE id=?")->execute([$label, $id]);
+        $db->prepare("UPDATE cleaning_types SET label=?, requires_tva_ticket=? WHERE id=?")->execute([$label, $requiresTva, $id]);
     } catch (PDOException $e) {
         if (str_contains($e->getMessage(), 'UNIQUE')) jsonResponse(['error' => 'Ce libellé existe déjà'], 409);
         jsonResponse(['error' => 'Erreur'], 500);
@@ -30,8 +31,8 @@ if ($id) {
 } else {
     $maxOrder = $db->query("SELECT COALESCE(MAX(sort_order),0) FROM cleaning_types")->fetchColumn();
     try {
-        $db->prepare("INSERT INTO cleaning_types (label, sort_order) VALUES (?, ?)")
-           ->execute([$label, $maxOrder + 1]);
+        $db->prepare("INSERT INTO cleaning_types (label, sort_order, requires_tva_ticket) VALUES (?, ?, ?)")
+           ->execute([$label, $maxOrder + 1, $requiresTva]);
     } catch (PDOException $e) {
         if (str_contains($e->getMessage(), 'UNIQUE')) jsonResponse(['error' => 'Ce libellé existe déjà'], 409);
         jsonResponse(['error' => 'Erreur'], 500);

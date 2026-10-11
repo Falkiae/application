@@ -304,6 +304,13 @@ function initSchema(PDO $pdo): void {
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )");
 
+    // cleaning_types: requires_tva_ticket flag
+    $ctCols = array_column($pdo->query("PRAGMA table_info(cleaning_types)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('requires_tva_ticket', $ctCols, true)) {
+        $pdo->exec("ALTER TABLE cleaning_types ADD COLUMN requires_tva_ticket INTEGER DEFAULT 1");
+        $pdo->exec("UPDATE cleaning_types SET requires_tva_ticket = 0 WHERE label IN ('Intérieur', 'Autre')");
+    }
+
     // daily_close (seals a given date — Phase 2 use)
     $pdo->exec("CREATE TABLE IF NOT EXISTS daily_close (
         date         TEXT PRIMARY KEY,

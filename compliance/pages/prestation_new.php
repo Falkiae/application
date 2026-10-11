@@ -1,6 +1,6 @@
 <?php
 $db = getDB();
-$cleaningTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
+$cleaningTypes = $db->query("SELECT id, label, requires_tva_ticket FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
 $technicians = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
 $currentTechId = currentUserId();
 $today = date('Y-m-d');
@@ -45,7 +45,7 @@ $today = date('Y-m-d');
                 <div class="type-grid">
                     <?php foreach ($cleaningTypes as $ct): ?>
                     <label class="type-btn">
-                        <input type="radio" name="type_nettoyage_id" value="<?= $ct['id'] ?>" required>
+                        <input type="radio" name="type_nettoyage_id" value="<?= $ct['id'] ?>" data-requires-tva="<?= (int)$ct['requires_tva_ticket'] ?>" required>
                         <span><?= htmlspecialchars($ct['label']) ?></span>
                     </label>
                     <?php endforeach; ?>
@@ -141,6 +141,10 @@ $today = date('Y-m-d');
                         <span>Non, sans ticket TVA</span>
                     </div>
                 </label>
+            </div>
+            <div id="tvaVehicleHint" class="tva-vehicle-hint" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Rappel : un ticket TVA est <strong>obligatoire</strong> pour ce type de nettoyage sans facture.</span>
             </div>
         </div>
 
@@ -257,6 +261,14 @@ $today = date('Y-m-d');
             </div>
             <div class="summary-card" id="summaryCard">
                 <!-- Filled by JS -->
+            </div>
+            <div id="tvaWarning" class="tva-missing-warning" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                    <strong>Attention : ticket TVA non coché</strong><br>
+                    Ce type de nettoyage nécessite normalement un ticket TVA (pas de facture).
+                    Êtes-vous sûr de vouloir continuer sans ?
+                </div>
             </div>
             <div id="submitError" class="alert alert-error" style="display:none"></div>
         </div>

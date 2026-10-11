@@ -21,6 +21,7 @@ $msg = $_GET['msg'] ?? '';
             <div class="type-list-info">
                 <strong><?= htmlspecialchars($type['label']) ?></strong>
                 <?php if (!$type['active']): ?><span class="badge badge-inactive">Inactif</span><?php endif; ?>
+                <?php if ($type['requires_tva_ticket']): ?><span class="badge badge-tva-req">Ticket TVA</span><?php endif; ?>
             </div>
             <div class="type-list-actions">
                 <button class="btn-icon btn-edit" onclick="editType(<?= htmlspecialchars(json_encode($type)) ?>)" title="Modifier">
@@ -53,6 +54,14 @@ $msg = $_GET['msg'] ?? '';
                 <label class="form-label">Libellé</label>
                 <input type="text" id="typeLabel" class="form-input" placeholder="Ex: SUV, Camping-car...">
             </div>
+            <div class="form-group">
+                <label class="form-label">Ticket TVA obligatoire</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="typeRequiresTva" value="1" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <p class="step-note">Activer pour les véhicules (obligation légale sans facture)</p>
+            </div>
             <div id="typeError" class="alert alert-error" style="display:none"></div>
         </div>
         <div class="modal-actions">
@@ -66,6 +75,7 @@ $msg = $_GET['msg'] ?? '';
 function showTypeForm() {
     document.getElementById('typeId').value = '';
     document.getElementById('typeLabel').value = '';
+    document.getElementById('typeRequiresTva').checked = true;
     document.getElementById('typeModalTitle').textContent = 'Ajouter un type de nettoyage';
     document.getElementById('typeError').style.display = 'none';
     document.getElementById('typeModal').classList.add('open');
@@ -73,6 +83,7 @@ function showTypeForm() {
 function editType(type) {
     document.getElementById('typeId').value = type.id;
     document.getElementById('typeLabel').value = type.label;
+    document.getElementById('typeRequiresTva').checked = !!type.requires_tva_ticket;
     document.getElementById('typeModalTitle').textContent = 'Modifier ' + type.label;
     document.getElementById('typeError').style.display = 'none';
     document.getElementById('typeModal').classList.add('open');
@@ -88,6 +99,7 @@ async function saveType() {
     const fd = new FormData();
     fd.append('id', id);
     fd.append('label', label);
+    fd.append('requires_tva_ticket', document.getElementById('typeRequiresTva').checked ? '1' : '0');
     fd.append('csrf_token', document.getElementById('csrfToken').value);
     const res = await fetch('api/admin_type_save.php', {method:'POST', body:fd});
     const data = await res.json();
