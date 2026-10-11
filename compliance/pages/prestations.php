@@ -209,7 +209,7 @@ for ($i = 0; $i < 12; $i++) {
                         <div class="service-badges">
                             <span class="badge badge-<?= $s['paiement'] ?>"><?= $paiementLabels[$s['paiement']] ?? $s['paiement'] ?></span>
                             <?php if ($s['ticket_tva']): ?><span class="badge badge-tva">TVA</span><?php endif; ?>
-                            <?php if ($s['requires_tva_ticket']): ?><span class="badge badge-tva-req">Ticket TVA oblig.</span><?php endif; ?>
+                            <?php if ($s['requires_tva_ticket'] && $s['paiement'] !== 'facture' && !$s['facture_a_faire']): ?><span class="badge badge-tva-req">Ticket TVA oblig.</span><?php endif; ?>
                             <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
                             <span class="badge badge-invoice">Facture à faire</span>
                             <?php elseif ($s['facture_envoyee']): ?>
