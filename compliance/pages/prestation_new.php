@@ -9,16 +9,17 @@ $today = date('Y-m-d');
 <div class="wizard-container">
     <!-- Progress bar -->
     <div class="wizard-progress">
-        <div class="wizard-progress-bar" id="progressBar" style="width:11%"></div>
+        <div class="wizard-progress-bar" id="progressBar" style="width:12.5%"></div>
     </div>
     <div class="wizard-steps-indicator">
-        <span id="stepLabel">Étape 1 sur 9</span>
+        <span id="stepLabel">Étape 1 sur 8</span>
     </div>
 
     <form id="prestationForm" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
         <input type="hidden" name="photo_avant_path" id="photoAvantPath">
         <input type="hidden" name="photo_apres_path" id="photoApresPath">
+        <input type="hidden" name="ticket_tva" id="ticketTvaHidden" value="0">
 
         <!-- STEP 1: Info de base -->
         <div class="wizard-step active" data-step="1">
@@ -120,36 +121,8 @@ $today = date('Y-m-d');
             <p class="step-note">* La photo après est optionnelle mais recommandée</p>
         </div>
 
-        <!-- STEP 4: Ticket TVA -->
+        <!-- STEP 4: Mode de paiement -->
         <div class="wizard-step" data-step="4">
-            <div class="step-header">
-                <h2>Ticket TVA</h2>
-                <p class="step-desc">Le client souhaite-t-il un ticket TVA ?</p>
-            </div>
-            <div class="toggle-choice">
-                <label class="toggle-option">
-                    <input type="radio" name="ticket_tva" value="1">
-                    <div class="toggle-card">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        <span>Oui, avec ticket TVA</span>
-                    </div>
-                </label>
-                <label class="toggle-option">
-                    <input type="radio" name="ticket_tva" value="0" checked>
-                    <div class="toggle-card">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                        <span>Non, sans ticket TVA</span>
-                    </div>
-                </label>
-            </div>
-            <div id="tvaVehicleHint" class="tva-vehicle-hint" style="display:none">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Rappel : un ticket TVA est <strong>obligatoire</strong> pour ce type de nettoyage sans facture.</span>
-            </div>
-        </div>
-
-        <!-- STEP 5: Mode de paiement -->
-        <div class="wizard-step" data-step="5">
             <div class="step-header">
                 <h2>Mode de paiement</h2>
                 <p class="step-desc">Comment le client paie-t-il ?</p>
@@ -178,8 +151,8 @@ $today = date('Y-m-d');
             </div>
         </div>
 
-        <!-- STEP 6: Facture à faire -->
-        <div class="wizard-step" data-step="6">
+        <!-- STEP 5: Facture à faire -->
+        <div class="wizard-step" data-step="5">
             <div class="step-header">
                 <h2>Facture à établir ?</h2>
                 <p class="step-desc">Faut-il établir une facture pour ce client ?</p>
@@ -218,8 +191,8 @@ $today = date('Y-m-d');
             </div>
         </div>
 
-        <!-- STEP 7: Montant -->
-        <div class="wizard-step" data-step="7">
+        <!-- STEP 6: Montant -->
+        <div class="wizard-step" data-step="6">
             <div class="step-header">
                 <h2>Montant</h2>
                 <p class="step-desc">Quel est le montant de la prestation ?</p>
@@ -240,8 +213,8 @@ $today = date('Y-m-d');
             </div>
         </div>
 
-        <!-- STEP 8: Notes -->
-        <div class="wizard-step" data-step="8">
+        <!-- STEP 7: Notes -->
+        <div class="wizard-step" data-step="7">
             <div class="step-header">
                 <h2>Notes</h2>
                 <p class="step-desc">Informations complémentaires (optionnel)</p>
@@ -253,8 +226,8 @@ $today = date('Y-m-d');
             </div>
         </div>
 
-        <!-- STEP 9: Résumé -->
-        <div class="wizard-step" data-step="9">
+        <!-- STEP 8: Résumé -->
+        <div class="wizard-step" data-step="8">
             <div class="step-header">
                 <h2>Confirmation</h2>
                 <p class="step-desc">Vérifiez les informations avant d'enregistrer</p>
@@ -262,13 +235,9 @@ $today = date('Y-m-d');
             <div class="summary-card" id="summaryCard">
                 <!-- Filled by JS -->
             </div>
-            <div id="tvaWarning" class="tva-missing-warning" style="display:none">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <div>
-                    <strong>Attention : ticket TVA non coché</strong><br>
-                    Ce type de nettoyage nécessite normalement un ticket TVA (pas de facture).
-                    Êtes-vous sûr de vouloir continuer sans ?
-                </div>
+            <div id="tvaReminder" class="tva-vehicle-hint" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Rappel : un ticket TVA est <strong>obligatoire</strong> pour ce type de nettoyage. Pensez à l'imprimer.</span>
             </div>
             <div id="submitError" class="alert alert-error" style="display:none"></div>
         </div>

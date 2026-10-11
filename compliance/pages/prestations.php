@@ -67,7 +67,8 @@ $stmt = $db->prepare("
            -- Display tech / type based on effective technician_id and type_nettoyage_id
            t.name  AS tech_name,
            t.color AS tech_color,
-           ct.label AS type_label
+           ct.label AS type_label,
+           ct.requires_tva_ticket
     FROM services s
     JOIN technicians t ON t.id = COALESCE((SELECT c.technician_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1), s.technician_id)
     JOIN cleaning_types ct ON ct.id = COALESCE((SELECT c.type_nettoyage_id FROM services c WHERE c.supersedes_id = s.id LIMIT 1), s.type_nettoyage_id)
@@ -208,6 +209,7 @@ for ($i = 0; $i < 12; $i++) {
                         <div class="service-badges">
                             <span class="badge badge-<?= $s['paiement'] ?>"><?= $paiementLabels[$s['paiement']] ?? $s['paiement'] ?></span>
                             <?php if ($s['ticket_tva']): ?><span class="badge badge-tva">TVA</span><?php endif; ?>
+                            <?php if ($s['requires_tva_ticket']): ?><span class="badge badge-tva-req">Ticket TVA oblig.</span><?php endif; ?>
                             <?php if ($s['facture_a_faire'] && !$s['facture_envoyee']): ?>
                             <span class="badge badge-invoice">Facture à faire</span>
                             <?php elseif ($s['facture_envoyee']): ?>

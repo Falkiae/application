@@ -1,6 +1,6 @@
 // Multi-step wizard for new prestation
 let currentStep = 1;
-const totalSteps = 9;
+const totalSteps = 8;
 const uploadedPhotos = { avant: null, apres: null };
 
 const FACTURE_THRESHOLD = 250;
@@ -11,20 +11,18 @@ function selectedTypeRequiresTva() {
     return el ? el.dataset.requiresTva === '1' : false;
 }
 
-function shouldShowTvaWarning() {
+function updateTicketTva() {
+    const hidden = document.getElementById('ticketTvaHidden');
+    if (hidden) hidden.value = selectedTypeRequiresTva() ? '1' : '0';
+}
+
+function shouldShowTvaReminder() {
     if (!selectedTypeRequiresTva()) return false;
-    const tva = document.querySelector('input[name="ticket_tva"]:checked')?.value;
-    if (tva === '1') return false;
     const paiement = document.querySelector('input[name="paiement"]:checked')?.value;
     if (paiement === 'facture') return false;
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
     if (facture === '1') return false;
     return true;
-}
-
-function updateTvaVehicleHint() {
-    const hint = document.getElementById('tvaVehicleHint');
-    if (hint) hint.style.display = selectedTypeRequiresTva() ? 'flex' : 'none';
 }
 
 function setFactureOui(checked) {
@@ -95,13 +93,13 @@ function validateCurrentStep() {
         if (!type) { showStepError('Veuillez sélectionner un type de nettoyage'); return false; }
         if (!lieu) { showStepError('Veuillez sélectionner le lieu'); return false; }
     }
-    // Step 5: paiement
-    if (currentStep === 5) {
+    // Step 4: paiement
+    if (currentStep === 4) {
         const paiement = document.querySelector('input[name="paiement"]:checked');
         if (!paiement) { showStepError('Veuillez sélectionner un mode de paiement'); return false; }
     }
-    // Step 7: montant
-    if (currentStep === 7) {
+    // Step 6: montant
+    if (currentStep === 6) {
         const montant = parseFloat(document.getElementById('montantInput')?.value || '0');
         if (isNaN(montant) || montant < 0) { showStepError('Veuillez saisir un montant valide'); return false; }
     }
@@ -153,7 +151,8 @@ function buildSummary() {
     const typeEl = document.querySelector('input[name="type_nettoyage_id"]:checked');
     const typeLabel = typeEl?.parentElement?.querySelector('span')?.textContent || '';
     const lieu = document.querySelector('input[name="lieu"]:checked')?.value || '';
-    const tva = document.querySelector('input[name="ticket_tva"]:checked')?.value;
+    const requiresTva = selectedTypeRequiresTva();
+    const tvaValue = document.getElementById('ticketTvaHidden')?.value || '0';
     const paiement = document.querySelector('input[name="paiement"]:checked')?.value || '';
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
     const montant = document.getElementById('montantInput')?.value || '0';
@@ -180,15 +179,15 @@ function buildSummary() {
         <div class="summary-row"><span>Lieu</span><strong>${lieuLabel}</strong></div>
         <div class="summary-row"><span>Photo avant</span><strong>${photoAvant}</strong></div>
         <div class="summary-row"><span>Photo après</span><strong>${photoApres}</strong></div>
-        <div class="summary-row${shouldShowTvaWarning() ? ' summary-row-warn' : ''}"><span>Ticket TVA</span><strong>${tva === '1' ? 'Oui' : 'Non'}${shouldShowTvaWarning() ? ' ⚠' : ''}</strong></div>
+        <div class="summary-row"><span>Ticket TVA</span><strong>${tvaValue === '1' ? 'Oui (obligatoire)' : 'Non (non requis)'}</strong></div>
         <div class="summary-row"><span>Paiement</span><strong>${paiementLabels[paiement] || paiement}</strong></div>
         <div class="summary-row"><span>Facture à faire</span><strong>${facture === '1' ? 'Oui' : 'Non'}</strong></div>
         <div class="summary-row summary-row-total"><span>Montant</span><strong>${parseFloat(montant).toFixed(2).replace('.',',')} €</strong></div>
         ${notes ? `<div class="summary-row"><span>Notes</span><span>${escHtml(notes)}</span></div>` : ''}
     `;
 
-    const warnEl = document.getElementById('tvaWarning');
-    if (warnEl) warnEl.style.display = shouldShowTvaWarning() ? 'flex' : 'none';
+    const reminderEl = document.getElementById('tvaReminder');
+    if (reminderEl) reminderEl.style.display = shouldShowTvaReminder() ? 'flex' : 'none';
 }
 
 function escHtml(str) {
@@ -208,10 +207,7 @@ async function submitPrestation() {
     const fd = new FormData(form);
     fd.set('action', 'create');
 
-    // Ensure checkbox values are sent as integers
-    const tva = document.querySelector('input[name="ticket_tva"]:checked')?.value || '0';
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value || '0';
-    fd.set('ticket_tva', tva);
     fd.set('facture_a_faire', facture);
 
     try {
@@ -310,9 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // TVA hint when a type requiring TVA ticket is selected
+    // Auto-set ticket_tva based on type selection
     document.querySelectorAll('input[name="type_nettoyage_id"]').forEach(r => {
-        r.addEventListener('change', updateTvaVehicleHint);
+        r.addEventListener('change', updateTicketTva);
     });
 
     // Montant threshold — auto-activate facture_a_faire above 250 €
