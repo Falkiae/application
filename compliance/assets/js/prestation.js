@@ -30,6 +30,13 @@ function shouldShowTvaReminder() {
     return ticketTvaRequired();
 }
 
+// Affiche/masque le champ "N° du ticket TVA" (step Montant) selon la règle
+function refreshTicketTvaField() {
+    updateTicketTva();
+    const block = document.getElementById('ticketTvaNumeroBlock');
+    if (block) block.style.display = ticketTvaRequired() ? 'block' : 'none';
+}
+
 function setFactureOui(checked) {
     const target = document.querySelector(`input[name="facture_a_faire"][value="${checked ? '1' : '0'}"]`);
     if (!target) return;
@@ -58,6 +65,7 @@ function checkFactureThreshold(amount) {
         }
         if (notice) notice.style.display = 'none';
     }
+    refreshTicketTvaField();
 }
 
 function updateProgress() {
@@ -83,6 +91,7 @@ function showStep(step) {
         target.classList.add('active');
         target.scrollIntoView({behavior:'smooth', block:'start'});
     }
+    refreshTicketTvaField();
 }
 
 function validateCurrentStep() {
@@ -103,10 +112,14 @@ function validateCurrentStep() {
         const paiement = document.querySelector('input[name="paiement"]:checked');
         if (!paiement) { showStepError('Veuillez sélectionner un mode de paiement'); return false; }
     }
-    // Step 6: montant
+    // Step 6: montant (+ n° ticket TVA si requis)
     if (currentStep === 6) {
         const montant = parseFloat(document.getElementById('montantInput')?.value || '0');
         if (isNaN(montant) || montant < 0) { showStepError('Veuillez saisir un montant valide'); return false; }
+        if (ticketTvaRequired() && !document.getElementById('ticketTvaNumero')?.value.trim()) {
+            showStepError('Veuillez saisir le numéro du ticket TVA');
+            return false;
+        }
     }
     clearStepError();
     return true;
@@ -197,11 +210,8 @@ function buildSummary() {
         ${notes ? `<div class="summary-row"><span>Notes</span><span>${escHtml(notes)}</span></div>` : ''}
     `;
 
-    const required = ticketTvaRequired();
     const reminderEl = document.getElementById('tvaReminder');
-    if (reminderEl) reminderEl.style.display = required ? 'flex' : 'none';
-    const numeroBlock = document.getElementById('ticketTvaNumeroBlock');
-    if (numeroBlock) numeroBlock.style.display = required ? 'block' : 'none';
+    if (reminderEl) reminderEl.style.display = ticketTvaRequired() ? 'flex' : 'none';
 }
 
 function escHtml(str) {
@@ -331,9 +341,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Auto-set ticket_tva based on type selection
+    // Auto-set ticket_tva + champ n° ticket selon le type sélectionné
     document.querySelectorAll('input[name="type_nettoyage_id"]').forEach(r => {
-        r.addEventListener('change', updateTicketTva);
+        r.addEventListener('change', refreshTicketTvaField);
     });
 
     // Montant threshold — auto-activate facture_a_faire above 250 €
@@ -343,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If user manually changes facture_a_faire, relinquish auto control
     document.querySelectorAll('input[name="facture_a_faire"]').forEach(radio => {
-        radio.addEventListener('change', () => { autoFacture = false; });
+        radio.addEventListener('change', () => { autoFacture = false; refreshTicketTvaField(); });
     });
 
     // Auto-check facture_a_faire + pre-fill billing note when paiement=facture
@@ -357,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     notesInput.value = 'Infos facturation : Nom complet, adresse, n° TVA';
                 }
             }
+            refreshTicketTvaField();
         });
     });
 });

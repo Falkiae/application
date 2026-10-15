@@ -211,6 +211,12 @@ $today = date('Y-m-d');
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                 Montant ≥ 250 € — Facture à établir activée automatiquement.
             </div>
+            <div class="form-group" id="ticketTvaNumeroBlock" style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-200);">
+                <label class="form-label" for="ticketTvaNumero">N° du ticket TVA <span style="color:#dc2626">*</span></label>
+                <input type="text" name="ticket_tva_numero" id="ticketTvaNumero" class="form-input"
+                       maxlength="50" placeholder="Numéro inscrit sur le ticket TVA">
+                <p class="step-note" style="text-align:left; color:#dc2626;">Obligatoire pour ce type de nettoyage sans facture.</p>
+            </div>
         </div>
 
         <!-- STEP 7: Notes -->
@@ -238,11 +244,6 @@ $today = date('Y-m-d');
             <div id="tvaReminder" class="tva-vehicle-hint" style="display:none">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 <span>Rappel : un ticket TVA est <strong>obligatoire</strong> pour ce type de nettoyage. Pensez à l'imprimer.</span>
-            </div>
-            <div class="form-group" id="ticketTvaNumeroBlock" style="display:none">
-                <label class="form-label">N° du ticket TVA <span style="color:#dc2626">*</span></label>
-                <input type="text" name="ticket_tva_numero" id="ticketTvaNumero" class="form-input"
-                       maxlength="50" placeholder="Numéro inscrit sur le ticket TVA">
             </div>
             <div id="submitError" class="alert alert-error" style="display:none"></div>
         </div>
