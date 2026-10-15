@@ -238,6 +238,7 @@ function initSchema(PDO $pdo): void {
         'cancelled_reason' => "ALTER TABLE services ADD COLUMN cancelled_reason TEXT",
         'supersedes_id'    => "ALTER TABLE services ADD COLUMN supersedes_id INTEGER",
         'cancels_id'       => "ALTER TABLE services ADD COLUMN cancels_id INTEGER",
+        'ticket_tva_numero'=> "ALTER TABLE services ADD COLUMN ticket_tva_numero TEXT",
     ];
     foreach ($svcAdd as $col => $sql) {
         if (!in_array($col, $svcCols, true)) $pdo->exec($sql);

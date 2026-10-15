@@ -85,7 +85,7 @@ $identityIncomplete = empty($company['name']) || empty($company['bce']) || empty
 
 // Fetch rows in the period + tab + lieu, ordered chronologically
 $stmt = $db->prepare("
-    SELECT s.id, s.receipt_no, s.date, s.technician_id, s.lieu, s.ticket_tva, s.paiement,
+    SELECT s.id, s.receipt_no, s.date, s.technician_id, s.lieu, s.ticket_tva, s.ticket_tva_numero, s.paiement,
            s.facture_a_faire, s.facture_envoyee, s.facture_ref, s.facture_date,
            s.vat_rate, s.montant, s.montant_htva, s.montant_tva,
            s.notes, s.cancelled_at, s.cancelled_reason,
@@ -333,7 +333,12 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                 <tr class="<?= $cls ?>">
                     <td class="receipt-no"><?= htmlspecialchars($r['receipt_no']) ?></td>
                     <td><?= date('d/m/Y', strtotime($r['date'])) ?></td>
-                    <td><?= $description ?></td>
+                    <td>
+                        <?= $description ?>
+                        <?php if (!empty($r['ticket_tva_numero'])): ?>
+                        <div class="livre-ticket-sub">Ticket TVA n° <?= htmlspecialchars($r['ticket_tva_numero']) ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td><?= htmlspecialchars($paiementLabel[$r['paiement']] ?? $r['paiement']) ?></td>
                     <td class="num"><?= number_format((float)$r['vat_rate'], 0) ?>%</td>
                     <td class="num"><?= $fmtEur($r['montant_htva']) ?> €</td>

@@ -161,8 +161,9 @@ function buildSummary() {
     const tvaValue = document.getElementById('ticketTvaHidden')?.value || '0';
     const paiement = document.querySelector('input[name="paiement"]:checked')?.value || '';
     const facture = document.querySelector('input[name="facture_a_faire"]:checked')?.value;
+    const ticketNumero = document.getElementById('ticketTvaNumero')?.value.trim() || '';
     let tvaLabel;
-    if (tvaValue === '1') tvaLabel = 'Oui (obligatoire)';
+    if (tvaValue === '1') tvaLabel = ticketNumero ? ('Oui — n° ' + ticketNumero) : 'Oui (obligatoire)';
     else if (requiresTva) tvaLabel = 'Non (couvert par facture)';
     else tvaLabel = 'Non (non requis)';
     const montant = document.getElementById('montantInput')?.value || '0';
@@ -196,8 +197,11 @@ function buildSummary() {
         ${notes ? `<div class="summary-row"><span>Notes</span><span>${escHtml(notes)}</span></div>` : ''}
     `;
 
+    const required = ticketTvaRequired();
     const reminderEl = document.getElementById('tvaReminder');
-    if (reminderEl) reminderEl.style.display = shouldShowTvaReminder() ? 'flex' : 'none';
+    if (reminderEl) reminderEl.style.display = required ? 'flex' : 'none';
+    const numeroBlock = document.getElementById('ticketTvaNumeroBlock');
+    if (numeroBlock) numeroBlock.style.display = required ? 'block' : 'none';
 }
 
 function escHtml(str) {
@@ -210,6 +214,17 @@ async function submitPrestation() {
     const btn = document.getElementById('submitBtn');
     const err = document.getElementById('submitError');
     err.style.display = 'none';
+
+    if (ticketTvaRequired()) {
+        const numeroEl = document.getElementById('ticketTvaNumero');
+        if (!numeroEl || !numeroEl.value.trim()) {
+            err.textContent = 'Veuillez saisir le numéro du ticket TVA.';
+            err.style.display = 'block';
+            numeroEl?.focus();
+            return;
+        }
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<div class="btn-spinner"></div> Enregistrement...';
 

@@ -224,6 +224,13 @@ $hasChain = ($chain['annulation'] !== null)
                             </label>
                         </div>
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="editTicketTvaNumero">N° du ticket TVA <span style="color:var(--gray-400);font-weight:400">(obligatoire pour véhicule sans facture)</span></label>
+                        <input type="text" name="ticket_tva_numero" id="editTicketTvaNumero" class="form-input" maxlength="50"
+                               value="<?= htmlspecialchars($service['ticket_tva_numero'] ?? '') ?>"
+                               placeholder="Numéro inscrit sur le ticket TVA"<?= $lock ? ' readonly' : '' ?>>
+                    </div>
                     <?php if ($service['facture_a_faire'] || $service['paiement'] === 'facture'): ?>
                     <div class="form-group" id="factureEnvoyeeRow">
                         <label class="form-label">Facture envoyée</label>
@@ -411,7 +418,7 @@ $hasChain = ($chain['annulation'] !== null)
                                 </div>
                                 <?php if ($h['changed_fields']):
                                     $fields = json_decode($h['changed_fields'], true) ?? [];
-                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes','technician_id'=>'Technicien','facture_envoyee'=>'Facture envoyée','vat_rate'=>'Taux TVA','photo_avant'=>'Photo avant','photo_apres'=>'Photo après'];
+                                    $fieldLabels = ['date'=>'Date','type_nettoyage_id'=>'Type','lieu'=>'Lieu','ticket_tva'=>'Ticket TVA','ticket_tva_numero'=>'N° ticket TVA','paiement'=>'Paiement','facture_a_faire'=>'Facture','montant'=>'Montant','notes'=>'Notes','technician_id'=>'Technicien','facture_envoyee'=>'Facture envoyée','vat_rate'=>'Taux TVA','photo_avant'=>'Photo avant','photo_apres'=>'Photo après'];
                                     $readable = array_map(fn($f) => $fieldLabels[$f] ?? $f, $fields);
                                 ?>
                                 <div class="history-fields">Modifié : <?= implode(', ', $readable) ?></div>

@@ -2203,6 +2203,7 @@ select.form-input, .form-select {
 .livre-table th.num, .livre-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
 .livre-table td { padding:6px; border-bottom:1px solid var(--gray-200); vertical-align:top; }
 .livre-table .receipt-no { font-family:ui-monospace, monospace; font-weight:600; color:var(--primary); }
+.livre-table .livre-ticket-sub { font-size:.72rem; color:var(--gray-500); margin-top:2px; }
 
 .livre-daytotal td { background:#f7f8fa; font-weight:600; font-size:.78rem; color:var(--gray-700); }
 .livre-total td { background:#e0e7ff; font-weight:700; font-size:.88rem; color:#1e3a8a; border-top:2px solid #1e3a8a; }

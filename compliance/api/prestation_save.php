@@ -28,6 +28,7 @@ $date = trim($_POST['date'] ?? '');
 $typeId = (int)($_POST['type_nettoyage_id'] ?? 0);
 $lieu = trim($_POST['lieu'] ?? '');
 $ticketTva = isset($_POST['ticket_tva']) ? (int)$_POST['ticket_tva'] : 0;
+$ticketTvaNumero = trim($_POST['ticket_tva_numero'] ?? '') ?: null;
 $paiement = trim($_POST['paiement'] ?? '');
 $factureAFaire = isset($_POST['facture_a_faire']) ? (int)$_POST['facture_a_faire'] : 0;
 $montant = (float)($_POST['montant'] ?? 0);
@@ -51,6 +52,17 @@ if (!in_array($lieu, ['domicile', 'atelier'])) jsonResponse(['error' => 'Lieu in
 if (!in_array($paiement, ['virement', 'cash', 'qrcode', 'facture'])) jsonResponse(['error' => 'Mode de paiement invalide'], 400);
 if ($montant < 0) jsonResponse(['error' => 'Montant invalide'], 400);
 if (strlen($notes) > 2000) jsonResponse(['error' => 'Notes trop longues'], 400);
+if ($ticketTvaNumero !== null && strlen($ticketTvaNumero) > 50) {
+    jsonResponse(['error' => 'Numéro de ticket TVA trop long (max 50 caractères)'], 400);
+}
+
+// Ticket TVA obligatoire : type véhicule (requires_tva_ticket) ET pas de facture.
+$reqStmt = $db->prepare("SELECT requires_tva_ticket FROM cleaning_types WHERE id = ?");
+$reqStmt->execute([$typeId]);
+$typeRequiresTva = (int)$reqStmt->fetchColumn() === 1;
+if ($typeRequiresTva && $paiement !== 'facture' && $factureAFaire !== 1 && $ticketTvaNumero === null) {
+    jsonResponse(['error' => 'Le numéro du ticket TVA est obligatoire pour ce type de prestation sans facture.'], 400);
+}
 
 // Sanitize photo paths (must be relative paths within uploads/)
 function sanitizePhotoPath(?string $path): ?string {
@@ -78,10 +90,10 @@ if ($action === 'create') {
     try {
         $receiptNo = complianceAllocReceiptNo('services', $year);
         $db->prepare("
-            INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes, receipt_no, vat_rate, montant_htva, montant_tva, facture_ref, facture_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO services (technician_id, date, type_nettoyage_id, lieu, ticket_tva, ticket_tva_numero, paiement, facture_a_faire, facture_envoyee, montant, photo_avant, photo_apres, notes, receipt_no, vat_rate, montant_htva, montant_tva, facture_ref, facture_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ")->execute([
-            $assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
+            $assignedTechId, $date, $typeId, $lieu, $ticketTva, $ticketTvaNumero, $paiement, $factureAFaire, $factureEnvoyee, $montant,
             sanitizePhotoPath($photoAvant), sanitizePhotoPath($photoApres), $notes ?: null,
             $receiptNo, $vatRate, $split['htva'], $split['tva'],
             $factureRef, $factureDate
@@ -100,7 +112,7 @@ if ($action === 'create') {
 
     addServiceHistory($newId, $actorId, 'create', null, [
         'technician_id'=>$assignedTechId,'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
-        'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
+        'ticket_tva'=>$ticketTva,'ticket_tva_numero'=>$ticketTvaNumero,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'facture_envoyee'=>$factureEnvoyee,
         'facture_ref'=>$factureRef,'facture_date'=>$factureDate,
         'montant'=>$montant,'notes'=>$notes,
@@ -163,7 +175,7 @@ if ($action === 'create') {
 
     $newValues = [
         'technician_id'=>$assignedTechId,'date'=>$date,'type_nettoyage_id'=>$typeId,'lieu'=>$lieu,
-        'ticket_tva'=>$ticketTva,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
+        'ticket_tva'=>$ticketTva,'ticket_tva_numero'=>$ticketTvaNumero,'paiement'=>$paiement,'facture_a_faire'=>$factureAFaire,
         'facture_envoyee'=>$factureEnvoyee,'montant'=>$montant,'notes'=>$notes,
         'photo_avant'=>$newPhotoAvant,'photo_apres'=>$newPhotoApres,
         'vat_rate'=>$vatRate,'montant_htva'=>$split['htva'],'montant_tva'=>$split['tva'],
@@ -171,7 +183,7 @@ if ($action === 'create') {
     ];
     $oldValues = [
         'technician_id'=>$old['technician_id'],'date'=>$old['date'],'type_nettoyage_id'=>$old['type_nettoyage_id'],'lieu'=>$old['lieu'],
-        'ticket_tva'=>$old['ticket_tva'],'paiement'=>$old['paiement'],'facture_a_faire'=>$old['facture_a_faire'],
+        'ticket_tva'=>$old['ticket_tva'],'ticket_tva_numero'=>$old['ticket_tva_numero'] ?? null,'paiement'=>$old['paiement'],'facture_a_faire'=>$old['facture_a_faire'],
         'facture_envoyee'=>$old['facture_envoyee'] ?? 0,'montant'=>$old['montant'],'notes'=>$old['notes'],
         'photo_avant'=>$old['photo_avant'],'photo_apres'=>$old['photo_apres'],
         'vat_rate'=>$old['vat_rate'],'montant_htva'=>$old['montant_htva'],'montant_tva'=>$old['montant_tva'],
@@ -180,12 +192,12 @@ if ($action === 'create') {
 
     // receipt_no is IMMUTABLE and never part of the SET list.
     $db->prepare("
-        UPDATE services SET technician_id=?, date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, paiement=?,
+        UPDATE services SET technician_id=?, date=?, type_nettoyage_id=?, lieu=?, ticket_tva=?, ticket_tva_numero=?, paiement=?,
         facture_a_faire=?, facture_envoyee=?, montant=?, photo_avant=?, photo_apres=?, notes=?,
         vat_rate=?, montant_htva=?, montant_tva=?, facture_ref=?, facture_date=?,
         updated_at=datetime('now','localtime')
         WHERE id=?
-    ")->execute([$assignedTechId, $date, $typeId, $lieu, $ticketTva, $paiement, $factureAFaire, $factureEnvoyee, $montant,
+    ")->execute([$assignedTechId, $date, $typeId, $lieu, $ticketTva, $ticketTvaNumero, $paiement, $factureAFaire, $factureEnvoyee, $montant,
                  $newPhotoAvant, $newPhotoApres, $notes ?: null,
                  $vatRate, $split['htva'], $split['tva'], $factureRef, $factureDate,
                  $id]);

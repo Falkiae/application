@@ -31,6 +31,7 @@ $stmt = $db->prepare("
            s.date, t.name as technicien, ct.label as type_nettoyage,
            CASE s.lieu WHEN 'domicile' THEN 'Domicile' ELSE 'Atelier' END as lieu,
            CASE WHEN ct.requires_tva_ticket = 1 AND s.paiement != 'facture' AND COALESCE(s.facture_a_faire,0) != 1 AND COALESCE(s.facture_envoyee,0) != 1 THEN 'Oui' ELSE 'Non' END as ticket_tva,
+           COALESCE(s.ticket_tva_numero,'') as ticket_tva_numero,
            CASE s.paiement WHEN 'cash' THEN 'Cash' WHEN 'virement' THEN 'Virement' WHEN 'qrcode' THEN 'QR Code' ELSE 'Sur facture' END as paiement,
            CASE WHEN s.facture_a_faire = 1 OR s.facture_envoyee = 1 THEN 'Oui' ELSE 'Non' END as facture_a_faire,
            COALESCE(s.facture_ref, '') as facture_ref,
@@ -54,7 +55,7 @@ $stmt = $db->prepare("
 $stmt->execute($params1);
 $allServices = $stmt->fetchAll(PDO::FETCH_NUM);
 
-$headers1 = ['N° recette', 'Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Facture', 'Réf facture', 'Taux TVA (%)', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Montant TVA (€)', 'Statut', 'Notes', 'Enregistré le'];
+$headers1 = ['N° recette', 'Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'N° ticket TVA', 'Paiement', 'Facture', 'Réf facture', 'Taux TVA (%)', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Montant TVA (€)', 'Statut', 'Notes', 'Enregistré le'];
 
 // --- Sheet 2: Services with invoice (facture à faire ou envoyée) ---
 $where2 = "strftime('%Y-%m', s.date) = ? AND (s.facture_a_faire = 1 OR s.facture_envoyee = 1)";
@@ -66,6 +67,7 @@ $stmt2 = $db->prepare("
            s.date, t.name as technicien, ct.label as type_nettoyage,
            CASE s.lieu WHEN 'domicile' THEN 'Domicile' ELSE 'Atelier' END as lieu,
            CASE WHEN ct.requires_tva_ticket = 1 AND s.paiement != 'facture' AND COALESCE(s.facture_a_faire,0) != 1 AND COALESCE(s.facture_envoyee,0) != 1 THEN 'Oui' ELSE 'Non' END as ticket_tva,
+           COALESCE(s.ticket_tva_numero,'') as ticket_tva_numero,
            CASE s.paiement WHEN 'cash' THEN 'Cash' WHEN 'virement' THEN 'Virement' WHEN 'qrcode' THEN 'QR Code' ELSE 'Sur facture' END as paiement,
            CASE WHEN s.facture_envoyee = 1 THEN 'Envoyée' ELSE 'À faire' END as statut_facture,
            COALESCE(s.facture_ref, '') as facture_ref,
@@ -81,7 +83,7 @@ $stmt2 = $db->prepare("
 $stmt2->execute($params2);
 $invoiceServices = $stmt2->fetchAll(PDO::FETCH_NUM);
 
-$headers2 = ['N° recette', 'Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'Paiement', 'Statut facture', 'Réf facture', 'Date facture', 'Taux TVA (%)', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Montant TVA (€)', 'Notes'];
+$headers2 = ['N° recette', 'Date', 'Technicien', 'Type de nettoyage', 'Lieu', 'Ticket TVA', 'N° ticket TVA', 'Paiement', 'Statut facture', 'Réf facture', 'Date facture', 'Taux TVA (%)', 'Montant TVAC (€)', 'Montant HTVA (€)', 'Montant TVA (€)', 'Notes'];
 
 // --- Sheet 3: Cash movements ---
 $where3 = "strftime('%Y-%m', date) = ?";

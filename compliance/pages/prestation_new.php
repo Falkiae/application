@@ -239,6 +239,11 @@ $today = date('Y-m-d');
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 <span>Rappel : un ticket TVA est <strong>obligatoire</strong> pour ce type de nettoyage. Pensez à l'imprimer.</span>
             </div>
+            <div class="form-group" id="ticketTvaNumeroBlock" style="display:none">
+                <label class="form-label">N° du ticket TVA <span style="color:#dc2626">*</span></label>
+                <input type="text" name="ticket_tva_numero" id="ticketTvaNumero" class="form-input"
+                       maxlength="50" placeholder="Numéro inscrit sur le ticket TVA">
+            </div>
             <div id="submitError" class="alert alert-error" style="display:none"></div>
         </div>
 
