@@ -20,6 +20,9 @@ if (!in_array($lieuFilter, ['tous', 'atelier', 'domicile'], true)) $lieuFilter =
 $typeFilter = (int)($_GET['type'] ?? 0);
 $allTypes = $db->query("SELECT id, label FROM cleaning_types WHERE active=1 ORDER BY sort_order, label")->fetchAll();
 
+$techFilter = (int)($_GET['tech'] ?? 0);
+$allTechs = $db->query("SELECT id, name FROM technicians WHERE active=1 ORDER BY name")->fetchAll();
+
 $monthNames = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // Date range for the SELECT
@@ -68,6 +71,10 @@ if ($lieuFilter !== 'tous') {
 if ($typeFilter > 0) {
     $where[] = "s.type_nettoyage_id = ?";
     $params[] = $typeFilter;
+}
+if ($techFilter > 0) {
+    $where[] = "s.technician_id = ?";
+    $params[] = $techFilter;
 }
 $whereStr = implode(' AND ', $where);
 
@@ -188,6 +195,7 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
             <input type="hidden" name="tab"  value="<?= htmlspecialchars($tab) ?>">
             <input type="hidden" name="lieu" value="<?= htmlspecialchars($lieuFilter) ?>">
             <input type="hidden" name="type" value="<?= $typeFilter ?>">
+            <input type="hidden" name="tech" value="<?= $techFilter ?>">
             <select name="period">
                 <option value="month"   <?= $period === 'month'   ? 'selected' : '' ?>>Mensuel</option>
                 <option value="quarter" <?= $period === 'quarter' ? 'selected' : '' ?>>Trimestriel</option>
@@ -220,6 +228,12 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
                 <option value="0">Tous les types</option>
                 <?php foreach ($allTypes as $t): ?>
                 <option value="<?= $t['id'] ?>" <?= $typeFilter === (int)$t['id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select name="tech" onchange="this.form.submit()" title="Filtrer par technicien">
+                <option value="0">Tous les techniciens</option>
+                <?php foreach ($allTechs as $tc): ?>
+                <option value="<?= $tc['id'] ?>" <?= $techFilter === (int)$tc['id'] ? 'selected' : '' ?>><?= htmlspecialchars($tc['name']) ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="submit" class="btn btn-sm">Afficher</button>
@@ -266,7 +280,7 @@ $paiementLabel = ['cash'=>'Cash', 'virement'=>'Virement', 'qrcode'=>'QR Code', '
             <div class="livre-title">
                 <h2><?= htmlspecialchars($documentTitle) ?></h2>
                 <div class="livre-subtitle"><?= htmlspecialchars($documentSubtitle) ?></div>
-                <div class="livre-period"><?= htmlspecialchars($periodLabel) ?><?php if ($lieuFilter !== 'tous'): ?> — <?= $lieuFilter === 'atelier' ? 'Atelier uniquement' : 'Domicile uniquement' ?><?php endif; ?><?php if ($typeFilter > 0): $typeFilterLabel = ''; foreach ($allTypes as $t) { if ((int)$t['id'] === $typeFilter) { $typeFilterLabel = $t['label']; break; } } ?> — <?= htmlspecialchars($typeFilterLabel) ?> uniquement<?php endif; ?></div>
+                <div class="livre-period"><?= htmlspecialchars($periodLabel) ?><?php if ($lieuFilter !== 'tous'): ?> — <?= $lieuFilter === 'atelier' ? 'Atelier uniquement' : 'Domicile uniquement' ?><?php endif; ?><?php if ($typeFilter > 0): $typeFilterLabel = ''; foreach ($allTypes as $t) { if ((int)$t['id'] === $typeFilter) { $typeFilterLabel = $t['label']; break; } } ?> — <?= htmlspecialchars($typeFilterLabel) ?> uniquement<?php endif; ?><?php if ($techFilter > 0): $techFilterLabel = ''; foreach ($allTechs as $tc) { if ((int)$tc['id'] === $techFilter) { $techFilterLabel = $tc['name']; break; } } ?> — <?= htmlspecialchars($techFilterLabel) ?><?php endif; ?></div>
                 <div class="livre-gendate">Édité le <?= date('d/m/Y H:i') ?></div>
             </div>
         </header>
